@@ -20,7 +20,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 ## Roadmap
  
 - [x] Repo skeleton and environment setup
-- [ ] MVP: single agent + one execution tool in Jupyter
+- [x] MVP: single agent + one execution tool in Jupyter
 - [ ] Chart generation tool
 - [ ] Streamlit UI
 - [ ] Multi-file support (upload arbitrary tables)
