@@ -16,9 +16,7 @@ venv/
 !.env.example
 
 # Data (never commit real data)
-data/*.csv
-data/*.xlsx
-data/*.xls
+data/*
 !data/.gitkeep
 
 # IDE
@@ -26,32 +24,9 @@ data/*.xls
 .idea/
 .DS_Store
 Thumbs.db
-EOFcat > .gitignore << 'EOF'
-# Python
-__pycache__/
-*.pyc
-*.pyo
 
-# Virtual environments
-.venv/
-venv/
+# Windows zone-identifier artifacts (WSL file transfers)
+*:Zone.Identifier
 
-# Jupyter
-.ipynb_checkpoints/
-
-# Environment variables
-.env
-.env.*
-!.env.example
-
-# Data (never commit real data)
-data/*.csv
-data/*.xlsx
-data/*.xls
-!data/.gitkeep
-
-# IDE
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Personal Claude Code context (not for public repo)
+CLAUDE.local.md
