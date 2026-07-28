@@ -52,6 +52,20 @@ The full DataFrame is **never** put into the LLM prompt. Only:
 
 ---
 
+## Synthetic Data Setting: Sharrkan & Zau al-Makan
+
+Real financial data lives in `data/` (git-ignored, never committed). For anything that needs to go into git — demos, tests, notebook examples shown in a portfolio context — we use a synthetic dataset styled after **One Thousand and One Nights**, specifically the tale of **King Omar bin al-Nu'uman and his sons Sharrkan and Zau al-Makan**.
+
+- **File:** `bazaar_books/caravan_accounts.csv` (tracked in git, not ignored)
+- **Columns:** `Realm, Guild_Name, Year, Quarter, Operating_Income, EBITDA, Tax, Net_Income, GOGS` — same shape as the real `new_fin.csv`, values fully synthetic (randomly generated, not derived from real data)
+- **Realms:** invented fantastical lands (e.g. "Oasis of Whispering Sands", "Peak of the Sleeping Djinn") — deliberately not real countries
+- **Guilds:** in-universe trading houses/guilds (e.g. "Djinn-Forged Ironworks", "Forty Thieves Foundry")
+- **Years:** 717–718 — the historical Umayyad siege of Constantinople, the event the Sharrkan/Zau al-Makan story is loosely modeled on
+
+**Why this story specifically:** the tale has genuine treasury/business texture — e.g. the bath-attendant (hammam keeper) who helps Zau al-Makan also runs his own trade — which maps naturally onto a financial-ledger dataset. Future synthetic data or flavor text for this project can keep drawing on this same story for consistency.
+
+---
+
 ## Code Style
 
 ### Python
