@@ -20,6 +20,8 @@ Context file for Claude Code. Read this file at the start of every session in th
 - **Package manager:** `uv`
 - **Environment:** WSL2 Ubuntu, VS Code + Jupyter
 - **LLM:** `Qwen/Qwen3-8B-MLX-4bit` via `mlx_lm.server` on a separate Apple Silicon Mac in the local network. Endpoint URL is stored in `.env`, not committed.
+  Local LLM is the primary target long-term; a future model-backend switcher
+  (to swap in Azure OpenAI / OpenAI endpoints) is planned — see roadmap.
 - **Orchestration:** LangGraph 1.2.x
 - **LangChain:** 1.3.x (v1.0 released April 2026 with breaking changes — do not rely on pre-1.0 patterns)
 - **Data:** pandas, matplotlib, openpyxl
@@ -146,20 +148,29 @@ git push
       confirmed working ("highest net income by realm", "most profitable
       company" — agent correctly maps natural-language terms to columns)
 
+### Validated (2026-07-29)
+Ran the agent against reference questions adapted from the legacy Forvis
+Mazars assistant's sample queries + this project's README samples: single
+aggregation, per-quarter grouping, growth-over-time, qualitative "why"
+reasoning, and small talk. The generic `execute_python_code` tool + LLM
+reasoning alone handled **all of them correctly** once `max_tokens` was
+raised from 2048 to 8192 (Qwen3's hidden `<think>` reasoning was hitting the
+old limit before producing visible output — confirmed via `finish_reason`
+and `completion_tokens` in `response_metadata`). No case so far where the
+generic tool proved insufficient — dedicated per-operation tools are
+deprioritized until we hit a real one (see Next up, bottom item).
+
 ### Next up
-1. Validate the agent against reference questions (adapted from the legacy
-   Forvis Mazars assistant's sample queries + this project's README samples)
-   - First pass: generic `execute_python_code` tool + LLM reasoning alone
-   - Then: add dedicated tools per common table operation (filter, groupby,
-     growth-over-time) only where the generic tool proves insufficient
-   - Agent should be transparent about whether it used a specific tool or
-     answered directly from reasoning
-   - Test user file upload in the notebook (near-term, before modularizing)
-2. Add `create_chart` tool (phase 2) — start small, expand incrementally
-3. Extract notebook code into `.py` modules (see LangGraph project layout above)
-4. Streamlit UI (phase 3)
-5. Multi-file support (upload arbitrary tables)
-6. RAG module (Chroma) for non-tabular files (PDF/DOC)
+1. Guard `execute_python_code` against printing huge output (e.g. an
+   LLM-generated `print(df)` on a large real-world table) — truncate with a
+   clear message instead of flooding the LLM context. Real tables in
+   production will be much bigger than our 176-row synthetic dataset.
+2. Test user file upload in the notebook (near-term, before modularizing)
+3. Add `create_chart` tool (phase 2) — start small, expand incrementally
+4. Extract notebook code into `.py` modules (see LangGraph project layout above)
+5. Streamlit UI (phase 3)
+6. Multi-file support (upload arbitrary tables)
+7. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -167,8 +178,19 @@ git push
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-7. Conversation memory across sessions
-8. Optional: switch backend to DeepSeek or other local models
+8. Conversation memory across sessions
+9. Model backend switcher — local LLM stays primary, but add the ability to
+   swap in Azure OpenAI / OpenAI endpoints (or other local models like
+   DeepSeek) without rewriting the agent code
+10. Surface tool-usage transparency to the end user — the notebook's test
+    loop already logs "used tool" vs "answered directly" per question; carry
+    this into the real UI so users can tell verified-via-code answers apart
+    from raw LLM reasoning
+11. *(lowest priority, exploratory)* Dedicated functions/tools for common
+    table operations (groupby-aggregate, filter, growth-over-time) as an
+    alternative to the generic `execute_python_code` tool — only revisit if
+    we hit a real question the generic tool can't handle; so far it has
+    handled everything thrown at it
 
 ---
 

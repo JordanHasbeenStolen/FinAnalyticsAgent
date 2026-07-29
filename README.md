@@ -13,6 +13,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **Data layer:** pandas DataFrame loaded from CSV/XLSX
 - **Tooling:** `execute_python_code` for pandas queries and matplotlib charts
 - **UI (planned):** Streamlit for interactive chat
+- **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded DataFrame, returns the result
@@ -21,11 +22,9 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
  
 - [x] Repo skeleton and environment setup
 - [x] MVP: single agent + one execution tool in Jupyter
-- [ ] Validate agent against reference questions (from legacy assistant + sample queries)
-  - [ ] First pass: cover reference questions with the generic `execute_python_code` tool + LLM reasoning alone
-  - [ ] Then: incrementally add dedicated tools for common table operations (e.g. filtering by column, groupby aggregation, growth-over-time) where the generic tool proves insufficient
-  - [ ] Agent should be transparent about *how* it answered — whether it used a specific tool or answered directly from reasoning
-  - [ ] Test user file upload in the notebook (near-term, before moving to modules)
+- [x] Validate agent against reference questions (from legacy assistant + sample queries) — the generic `execute_python_code` tool + LLM reasoning alone correctly handled all tested questions (single aggregation, per-quarter grouping, growth-over-time, qualitative "why" reasoning, small talk) once `max_tokens` was raised enough for Qwen3's hidden `<think>` reasoning
+- [ ] Guard `execute_python_code` against printing huge output (e.g. an LLM-generated `print(df)` on a large real-world table) — truncate with a clear message instead of flooding the LLM context
+- [ ] Test user file upload in the notebook (near-term, before moving to modules)
 - [ ] Chart generation tool (`create_chart`) — start small, expand incrementally
 - [ ] Extract notebook code into `.py` modules (`state.py`, `tools.py`, `prompts.py`, `graph.py` — exporting a `graph` object per LangGraph convention, no separate `nodes.py` or `build_agent()` factory)
 - [ ] Streamlit UI
@@ -36,7 +35,18 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
   - [ ] Graceful degradation: if the RAG module/embedding endpoint is unavailable, tell the user explicitly ("you uploaded a PDF, RAG is needed, but the module is unavailable") instead of failing silently — important for demos
   - [ ] Embedding model currently only runs locally via Ollama; plan needed for running embedding models within the existing Mac/MLX setup instead
 - [ ] Conversation memory across sessions
-- [ ] Optional: switch backend to DeepSeek or other local models
+- [ ] Model backend switcher — local LLM stays the primary target, but add the
+      ability to swap in Azure OpenAI / OpenAI endpoints (or other local
+      models like DeepSeek) without rewriting the agent code
+- [ ] Surface tool-usage transparency to the end user (in the notebook's test
+      loop we already log "used tool" vs "answered directly" per question —
+      carry this into the real UI so users can tell verified-via-code answers
+      apart from raw LLM reasoning)
+- [ ] *(lowest priority, exploratory)* Dedicated functions/tools for common
+      table operations (e.g. groupby-aggregate, filter, growth-over-time) as
+      an alternative to the generic `execute_python_code` tool — only worth
+      revisiting if we hit a real question the generic tool can't handle;
+      so far it has handled everything we've thrown at it
 ## Stack
  
 - Python 3.12, `uv` for env management
