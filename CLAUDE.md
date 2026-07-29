@@ -24,7 +24,7 @@ Context file for Claude Code. Read this file at the start of every session in th
   (to swap in Azure OpenAI / OpenAI endpoints) is planned — see roadmap.
 - **Orchestration:** LangGraph 1.2.x
 - **LangChain:** 1.3.x (v1.0 released April 2026 with breaking changes — do not rely on pre-1.0 patterns)
-- **Data:** pandas, matplotlib, openpyxl
+- **Data:** pandas, matplotlib, openpyxl, ipywidgets (for the notebook's file-upload widget)
 - **UI (planned):** Streamlit
 
 Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via `uv add <package>`.
@@ -37,9 +37,9 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 `create_react_agent` from `langgraph.prebuilt` is now deprecated in favor of this).
 
 ### Tools
-- `execute_python_code(code: str)` — runs LLM-generated pandas code against a pre-loaded DataFrame, returns the result
-- `create_chart(code: str)` — matplotlib chart generation, saves PNG to `outputs/`, returns file path *(phase 2)*
-- Future: `read_new_table(path)` for arbitrary table uploads
+- `execute_python_code(code: str)` — runs LLM-generated pandas code against a pre-loaded DataFrame, returns the result. Truncates output past `MAX_TOOL_OUTPUT_CHARS` with a clear message instead of flooding the LLM context.
+- `create_chart(code: str)` — matplotlib chart generation, saves PNG to `outputs/`, returns file path *(phase 2, not yet built)*
+- `load_table(path)` — loads a `.csv`/`.xlsx` by extension; this is the built version of what the roadmap used to call `read_new_table(path)`. Combined with `ipywidgets.FileUpload` in the notebook for a real click-to-upload flow.
 
 ### State
 `TypedDict` with `messages: Annotated[list[AnyMessage], operator.add]`.
@@ -59,8 +59,9 @@ The full DataFrame is **never** put into the LLM prompt. Only:
 
 Real financial data lives in `data/` (git-ignored, never committed). For anything that needs to go into git — demos, tests, notebook examples shown in a portfolio context — we use a synthetic dataset styled after **One Thousand and One Nights**, specifically the tale of **King Omar bin al-Nu'uman and his sons Sharrkan and Zau al-Makan**.
 
-- **File:** `bazaar_books/caravan_accounts.csv` (tracked in git, not ignored)
-- **Columns:** `Realm, Guild_Name, Year, Quarter, Operating_Income, EBITDA, Tax, Net_Income, GOGS` — same shape as the real `new_fin.csv`, values fully synthetic (randomly generated, not derived from real data)
+- **Files (both tracked in git, not ignored):**
+  - `bazaar_books/caravan_accounts.csv` — columns `Realm, Guild_Name, Year, Quarter, Operating_Income, EBITDA, Tax, Net_Income, GOGS`, same shape as the real `new_fin.csv`, values fully synthetic (randomly generated, not derived from real data)
+  - `bazaar_books/guild_ledger.csv` — a second synthetic dataset with a deliberately different, non-financial schema (`Guild_Name, Year, Quarter, Market_Share_Pct, Employee_Count, Customer_Satisfaction_Score`), used to prove the agent/prompt/tool pipeline isn't secretly tied to the first file's column names
 - **Realms:** invented fantastical lands (e.g. "Oasis of Whispering Sands", "Peak of the Sleeping Djinn") — deliberately not real countries
 - **Guilds:** in-universe trading houses/guilds (e.g. "Djinn-Forged Ironworks", "Forty Thieves Foundry")
 - **Years:** 717–718 — the historical Umayyad siege of Constantinople, the event the Sharrkan/Zau al-Makan story is loosely modeled on
@@ -160,17 +161,25 @@ and `completion_tokens` in `response_metadata`). No case so far where the
 generic tool proved insufficient — dedicated per-operation tools are
 deprioritized until we hit a real one (see Next up, bottom item).
 
+### Done (2026-07-30)
+- Guard `execute_python_code` against printing huge output — truncates past
+  `MAX_TOOL_OUTPUT_CHARS` with a clear message telling the model to narrow
+  its query, instead of flooding the LLM context. Verified with a
+  simulated large-output test (our real dataset is too small to trigger it
+  naturally).
+- Test user file upload in the notebook — `load_table(path)` generalizes
+  loading beyond the one hardcoded CSV (verified against a second
+  synthetic dataset, `guild_ledger.csv`, with an unrelated schema), plus a
+  real click-to-upload flow via `ipywidgets.FileUpload`, tested against
+  both a synthetic file and a real one (`data/new_fin.csv`, output not
+  committed).
+
 ### Next up
-1. Guard `execute_python_code` against printing huge output (e.g. an
-   LLM-generated `print(df)` on a large real-world table) — truncate with a
-   clear message instead of flooding the LLM context. Real tables in
-   production will be much bigger than our 176-row synthetic dataset.
-2. Test user file upload in the notebook (near-term, before modularizing)
-3. Add `create_chart` tool (phase 2) — start small, expand incrementally
-4. Extract notebook code into `.py` modules (see LangGraph project layout above)
-5. Streamlit UI (phase 3)
-6. Multi-file support (upload arbitrary tables)
-7. RAG module (Chroma) for non-tabular files (PDF/DOC)
+1. Add `create_chart` tool (phase 2) — start small, expand incrementally
+2. Extract notebook code into `.py` modules (see LangGraph project layout above)
+3. Streamlit UI (phase 3)
+4. Multi-file support (upload arbitrary tables)
+5. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -178,19 +187,19 @@ deprioritized until we hit a real one (see Next up, bottom item).
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-8. Conversation memory across sessions
-9. Model backend switcher — local LLM stays primary, but add the ability to
+6. Conversation memory across sessions
+7. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code
-10. Surface tool-usage transparency to the end user — the notebook's test
-    loop already logs "used tool" vs "answered directly" per question; carry
-    this into the real UI so users can tell verified-via-code answers apart
-    from raw LLM reasoning
-11. *(lowest priority, exploratory)* Dedicated functions/tools for common
-    table operations (groupby-aggregate, filter, growth-over-time) as an
-    alternative to the generic `execute_python_code` tool — only revisit if
-    we hit a real question the generic tool can't handle; so far it has
-    handled everything thrown at it
+8. Surface tool-usage transparency to the end user — the notebook's test
+   loop already logs "used tool" vs "answered directly" per question; carry
+   this into the real UI so users can tell verified-via-code answers apart
+   from raw LLM reasoning
+9. *(lowest priority, exploratory)* Dedicated functions/tools for common
+   table operations (groupby-aggregate, filter, growth-over-time) as an
+   alternative to the generic `execute_python_code` tool — only revisit if
+   we hit a real question the generic tool can't handle; so far it has
+   handled everything thrown at it
 
 ---
 
@@ -201,5 +210,5 @@ deprioritized until we hit a real one (see Next up, bottom item).
 - **Ask before destructive actions:** rewriting git history, `git push --force`, deleting files, restructuring project layout.
 - **Announce non-trivial actions before doing them.** Especially git operations, file moves, dependency installs.
 - **Never hardcode credentials.** All secrets in `.env`.
-- **Never commit real data.** Files in `data/*.csv` and `data/*.xlsx` are git-ignored on purpose.
+- **Never commit real data.** The entire `data/` directory (except `.gitkeep`) is git-ignored on purpose — use the synthetic files in `bazaar_books/` for anything that needs to go into git or a notebook output.
 - **Prefer the fastest path to a working prototype.** This is a personal MVP, not a production system. Don't propose custom implementations when a prebuilt one works. Don't refactor unless asked.

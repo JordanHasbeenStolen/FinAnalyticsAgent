@@ -11,7 +11,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **Orchestration:** LangGraph (ReAct pattern, custom agent graph)
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** pandas DataFrame loaded from CSV/XLSX
-- **Tooling:** `execute_python_code` for pandas queries and matplotlib charts
+- **Tooling:** `execute_python_code` for pandas queries; matplotlib charts via a separate `create_chart` tool *(planned, not yet built)*
 - **UI (planned):** Streamlit for interactive chat
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
@@ -23,8 +23,8 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - [x] Repo skeleton and environment setup
 - [x] MVP: single agent + one execution tool in Jupyter
 - [x] Validate agent against reference questions (from legacy assistant + sample queries) — the generic `execute_python_code` tool + LLM reasoning alone correctly handled all tested questions (single aggregation, per-quarter grouping, growth-over-time, qualitative "why" reasoning, small talk) once `max_tokens` was raised enough for Qwen3's hidden `<think>` reasoning
-- [ ] Guard `execute_python_code` against printing huge output (e.g. an LLM-generated `print(df)` on a large real-world table) — truncate with a clear message instead of flooding the LLM context
-- [ ] Test user file upload in the notebook (near-term, before moving to modules)
+- [x] Guard `execute_python_code` against printing huge output (e.g. an LLM-generated `print(df)` on a large real-world table) — truncates past a character limit with a clear message instead of flooding the LLM context
+- [x] Test user file upload in the notebook — `load_table(path)` generalizes loading beyond one hardcoded file (tested against a second synthetic dataset with an unrelated schema), plus a real click-to-upload flow via `ipywidgets.FileUpload`
 - [ ] Chart generation tool (`create_chart`) — start small, expand incrementally
 - [ ] Extract notebook code into `.py` modules (`state.py`, `tools.py`, `prompts.py`, `graph.py` — exporting a `graph` object per LangGraph convention, no separate `nodes.py` or `build_agent()` factory)
 - [ ] Streamlit UI
@@ -49,8 +49,8 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
       so far it has handled everything we've thrown at it
 ## Stack
  
-- Python 3.12, `uv` for env management
-- `langgraph`, `langchain`, `langchain-openai`, `pandas`, `matplotlib`
+- Python 3.13, `uv` for env management
+- `langgraph`, `langchain`, `langchain-openai`, `pandas`, `matplotlib`, `ipywidgets`
 - Development in WSL2 / VS Code / Jupyter
 - On-prem inference: `mlx_lm.server` on Apple Silicon
 ## Status
