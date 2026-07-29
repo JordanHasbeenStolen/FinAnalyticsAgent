@@ -31,7 +31,8 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 
 ## Architecture
 
-**ReAct pattern** on LangGraph. Fast path: use `create_react_agent` from `langgraph.prebuilt`.
+**ReAct pattern**, built with `create_agent` from `langchain.agents` (verified 2026-07-28:
+`create_react_agent` from `langgraph.prebuilt` is now deprecated in favor of this).
 
 ### Tools
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against a pre-loaded DataFrame, returns the result
@@ -77,12 +78,19 @@ Real financial data lives in `data/` (git-ignored, never committed). For anythin
 - Group imports: stdlib → third-party → local. Blank line between groups.
 
 ### LangGraph project layout
-Extract from notebook to modules once code stabilizes:
+Extract from notebook to modules once code stabilizes. Verified against the
+official `application-structure` docs and the real `langchain-ai/react-agent`
+and `retrieval-agent-template` repos (2026-07-28) — `nodes.py` and
+`build_agent()` are NOT used in any current official template, so we drop them:
 - `state.py` — state classes
 - `tools.py` — tool functions
-- `nodes.py` — node implementations
-- `graph.py` — `build_agent()` returns a compiled graph
 - `prompts.py` — system prompts as string constants
+- `graph.py` — builds the graph and exports a module-level `graph` variable
+  (not a `build_agent()` factory function — that's not the real convention)
+- Node functions live inline in `graph.py`, not in a separate `nodes.py`
+- No official project-structure guidance exists yet for the newer
+  `create_agent` (`langchain.agents`) API we're actually using — this layout
+  is our own reasonable choice, not a documented standard for that API
 
 ### Notebooks
 - Names: `NN_description.ipynb` (leading number for order).
@@ -132,17 +140,35 @@ git push
 - [x] Repo initialized, project structure in place
 - [x] Dependencies installed via uv
 - [x] Stack check passes — LLM responds via LangChain
+- [x] MVP: synthetic dataset (`bazaar_books/caravan_accounts.csv`), schema+preview
+      system prompt, `execute_python_code` tool, agent via `create_agent`
+      (not the deprecated `create_react_agent`), first end-to-end queries
+      confirmed working ("highest net income by realm", "most profitable
+      company" — agent correctly maps natural-language terms to columns)
 
 ### Next up
-1. Load `new_fin.csv` into pandas, inspect schema
-2. Design the schema-and-preview system prompt
-3. Build `execute_python_code` tool
-4. Wire into ReAct agent via `create_react_agent`
-5. First end-to-end query: "Which country had the highest net income in 2023?"
-6. Iterate on sample queries
-7. Add `create_chart` tool (phase 2)
-8. Extract logic from notebook to `.py` modules
-9. Streamlit UI (phase 3)
+1. Validate the agent against reference questions (adapted from the legacy
+   Forvis Mazars assistant's sample queries + this project's README samples)
+   - First pass: generic `execute_python_code` tool + LLM reasoning alone
+   - Then: add dedicated tools per common table operation (filter, groupby,
+     growth-over-time) only where the generic tool proves insufficient
+   - Agent should be transparent about whether it used a specific tool or
+     answered directly from reasoning
+   - Test user file upload in the notebook (near-term, before modularizing)
+2. Add `create_chart` tool (phase 2) — start small, expand incrementally
+3. Extract notebook code into `.py` modules (see LangGraph project layout above)
+4. Streamlit UI (phase 3)
+5. Multi-file support (upload arbitrary tables)
+6. RAG module (Chroma) for non-tabular files (PDF/DOC)
+   - File-type router: tabular → pandas tools, PDF/DOC → RAG
+   - Router decides by file content and/or extension
+   - Graceful degradation: if the RAG module/embedding endpoint is
+     unavailable, tell the user explicitly instead of failing silently —
+     matters for demos to colleagues
+   - Embedding model currently only runs locally via Ollama; need a plan
+     for running embedding models within the existing Mac/MLX setup instead
+7. Conversation memory across sessions
+8. Optional: switch backend to DeepSeek or other local models
 
 ---
 

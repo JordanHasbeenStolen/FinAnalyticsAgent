@@ -21,9 +21,20 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
  
 - [x] Repo skeleton and environment setup
 - [x] MVP: single agent + one execution tool in Jupyter
-- [ ] Chart generation tool
+- [ ] Validate agent against reference questions (from legacy assistant + sample queries)
+  - [ ] First pass: cover reference questions with the generic `execute_python_code` tool + LLM reasoning alone
+  - [ ] Then: incrementally add dedicated tools for common table operations (e.g. filtering by column, groupby aggregation, growth-over-time) where the generic tool proves insufficient
+  - [ ] Agent should be transparent about *how* it answered — whether it used a specific tool or answered directly from reasoning
+  - [ ] Test user file upload in the notebook (near-term, before moving to modules)
+- [ ] Chart generation tool (`create_chart`) — start small, expand incrementally
+- [ ] Extract notebook code into `.py` modules (`state.py`, `tools.py`, `prompts.py`, `graph.py` — exporting a `graph` object per LangGraph convention, no separate `nodes.py` or `build_agent()` factory)
 - [ ] Streamlit UI
 - [ ] Multi-file support (upload arbitrary tables)
+- [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
+  - [ ] File-type router: tabular files → pandas tools, PDF/DOC → RAG
+  - [ ] Router decides by file content and/or extension
+  - [ ] Graceful degradation: if the RAG module/embedding endpoint is unavailable, tell the user explicitly ("you uploaded a PDF, RAG is needed, but the module is unavailable") instead of failing silently — important for demos
+  - [ ] Embedding model currently only runs locally via Ollama; plan needed for running embedding models within the existing Mac/MLX setup instead
 - [ ] Conversation memory across sessions
 - [ ] Optional: switch backend to DeepSeek or other local models
 ## Stack
