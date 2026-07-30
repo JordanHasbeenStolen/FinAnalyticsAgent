@@ -11,13 +11,13 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **Orchestration:** LangGraph (ReAct pattern, custom agent graph)
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** pandas DataFrame loaded from CSV/XLSX
-- **Tooling:** `execute_python_code` for pandas queries; matplotlib charts via a separate `create_chart` tool *(planned, not yet built)*
+- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts
 - **UI (planned):** Streamlit for interactive chat
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded DataFrame, returns the result
-- `create_chart(code: str)` *(planned)* — matplotlib chart generation, saves to disk, returns file path
+- `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded DataFrame, saves the figure to `outputs/*.png`, returns the file path
 ## Roadmap
  
 - [x] Repo skeleton and environment setup
@@ -25,8 +25,8 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - [x] Validate agent against reference questions (from legacy assistant + sample queries) — the generic `execute_python_code` tool + LLM reasoning alone correctly handled all tested questions (single aggregation, per-quarter grouping, growth-over-time, qualitative "why" reasoning, small talk) once `max_tokens` was raised enough for Qwen3's hidden `<think>` reasoning
 - [x] Guard `execute_python_code` against printing huge output (e.g. an LLM-generated `print(df)` on a large real-world table) — truncates past a character limit with a clear message instead of flooding the LLM context
 - [x] Test user file upload in the notebook — `load_table(path)` generalizes loading beyond one hardcoded file (tested against a second synthetic dataset with an unrelated schema), plus a real click-to-upload flow via `ipywidgets.FileUpload`
-- [ ] Chart generation tool (`create_chart`) — start small, expand incrementally
-- [ ] Extract notebook code into `.py` modules (`state.py`, `tools.py`, `prompts.py`, `graph.py` — exporting a `graph` object per LangGraph convention, no separate `nodes.py` or `build_agent()` factory)
+- [x] Chart generation tool (`create_chart`) — mirrors `execute_python_code`'s shape (LLM writes plotting code against `df`), saves the figure to `outputs/*.png` (git-ignored, same rationale as `data/`) and returns the path
+- [ ] Extract code into `.py` modules alongside the notebook (`state.py` for the current DataFrame, `tools.py`, `prompts.py`, `graph.py` for model+agent construction) — the notebook itself is not going away; it stays as the running R&D log of every step, the modules are an additional reusable layer for Streamlit to import from
 - [ ] Streamlit UI
 - [ ] Multi-file support (upload arbitrary tables)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)

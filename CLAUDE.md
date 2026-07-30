@@ -38,7 +38,7 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 
 ### Tools
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against a pre-loaded DataFrame, returns the result. Truncates output past `MAX_TOOL_OUTPUT_CHARS` with a clear message instead of flooding the LLM context.
-- `create_chart(code: str)` — matplotlib chart generation, saves PNG to `outputs/`, returns file path *(phase 2, not yet built)*
+- `create_chart(code: str)` — matplotlib chart generation, saves PNG to `outputs/` (git-ignored, same rationale as `data/`), returns file path
 - `load_table(path)` — loads a `.csv`/`.xlsx` by extension; this is the built version of what the roadmap used to call `read_new_table(path)`. Combined with `ipywidgets.FileUpload` in the notebook for a real click-to-upload flow.
 
 ### State
@@ -81,23 +81,38 @@ Real financial data lives in `data/` (git-ignored, never committed). For anythin
 - Group imports: stdlib → third-party → local. Blank line between groups.
 
 ### LangGraph project layout
-Extract from notebook to modules once code stabilizes. Verified against the
-official `application-structure` docs and the real `langchain-ai/react-agent`
-and `retrieval-agent-template` repos (2026-07-28) — `nodes.py` and
-`build_agent()` are NOT used in any current official template, so we drop them:
-- `state.py` — state classes
-- `tools.py` — tool functions
-- `prompts.py` — system prompts as string constants
-- `graph.py` — builds the graph and exports a module-level `graph` variable
-  (not a `build_agent()` factory function — that's not the real convention)
-- Node functions live inline in `graph.py`, not in a separate `nodes.py`
+Add `.py` modules alongside the notebook once code stabilizes — **the
+notebook is not being deleted or replaced**; it stays as the running R&D
+log of every step, for anyone reading the repo to follow the reasoning.
+The modules are an additional reusable layer that Streamlit (and future
+code) imports from, so logic doesn't have to be copy-pasted out of the
+notebook. Verified against the official `application-structure` docs and
+the real `langchain-ai/react-agent` and `retrieval-agent-template` repos
+(2026-07-28) — `nodes.py` and `build_agent()` are NOT used in any current
+official template, so we drop them:
+- `state.py` — NOT a LangGraph TypedDict state (we don't use raw
+  `StateGraph`, we use `create_agent` which manages its own internal
+  state). Here it just holds the current `df` (a get/set pair), since
+  `tools.py` and `prompts.py` both need to read whichever table is
+  currently loaded, and a plain module-level variable in one file doesn't
+  work once the code is split across files.
+- `tools.py` — `execute_python_code`, `create_chart`
+- `prompts.py` — `build_schema_table`, `build_preview_kv`,
+  `SYSTEM_PROMPT_TEMPLATE`, `build_system_prompt`
+- `graph.py` — the `model` and a `build_agent(df)` function that sets the
+  active table in `state`, builds the system prompt, and returns a fresh
+  `create_agent(...)` — not a module-level `build_agent()` factory with no
+  arguments; ours takes `df` because the table changes at runtime (file
+  upload), unlike the official templates' static graphs
 - No official project-structure guidance exists yet for the newer
   `create_agent` (`langchain.agents`) API we're actually using — this layout
   is our own reasonable choice, not a documented standard for that API
 
 ### Notebooks
 - Names: `NN_description.ipynb` (leading number for order).
-- Use for exploration; move working code to `.py` modules.
+- `r&d.ipynb` keeps growing as the permanent step-by-step R&D record —
+  it is never trimmed down once modules exist. Modules hold the reusable
+  logic; the notebook is the narrative of how it got there.
 
 ---
 
@@ -173,13 +188,18 @@ deprioritized until we hit a real one (see Next up, bottom item).
   real click-to-upload flow via `ipywidgets.FileUpload`, tested against
   both a synthetic file and a real one (`data/new_fin.csv`, output not
   committed).
+- `create_chart` tool — mirrors `execute_python_code`'s shape (LLM writes
+  matplotlib code against `df`), saves the figure to `outputs/*.png`
+  (git-ignored) and returns the path. System prompt updated so the agent
+  knows to use it for chart/plot/visualization requests. Verified
+  end-to-end through the agent, not just called directly.
 
 ### Next up
-1. Add `create_chart` tool (phase 2) — start small, expand incrementally
-2. Extract notebook code into `.py` modules (see LangGraph project layout above)
-3. Streamlit UI (phase 3)
-4. Multi-file support (upload arbitrary tables)
-5. RAG module (Chroma) for non-tabular files (PDF/DOC)
+1. Extract code into `.py` modules alongside the notebook (see LangGraph
+   project layout above) — notebook stays as-is, modules are additive
+2. Streamlit UI (phase 3)
+3. Multi-file support (upload arbitrary tables)
+4. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -187,15 +207,15 @@ deprioritized until we hit a real one (see Next up, bottom item).
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-6. Conversation memory across sessions
-7. Model backend switcher — local LLM stays primary, but add the ability to
+5. Conversation memory across sessions
+6. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code
-8. Surface tool-usage transparency to the end user — the notebook's test
+7. Surface tool-usage transparency to the end user — the notebook's test
    loop already logs "used tool" vs "answered directly" per question; carry
    this into the real UI so users can tell verified-via-code answers apart
    from raw LLM reasoning
-9. *(lowest priority, exploratory)* Dedicated functions/tools for common
+8. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
