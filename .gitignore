@@ -19,6 +19,10 @@ venv/
 data/*
 !data/.gitkeep
 
+# Generated charts (may visualize real uploaded data)
+outputs/*
+!outputs/.gitkeep
+
 # IDE
 .vscode/
 .idea/
