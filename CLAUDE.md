@@ -242,8 +242,15 @@ deprioritized until we hit a real one (see Next up, bottom item).
 ### Next up
 1. Build the Streamlit UI (phase 3) — chat interface per the design
    direction above, backed by `finanalyticsagent.graph.build_agent`
-2. Multi-file support (upload arbitrary tables)
-3. RAG module (Chroma) for non-tabular files (PDF/DOC)
+2. Add a real `pytest` test suite in `tests/` — unit tests for the pure
+   functions in `finanalyticsagent/` (`prompts.py`, `tools.py`'s
+   `load_table`, `active_table.py`) first, since those are fast and
+   deterministic (no LLM calls). No formal tests exist yet — the
+   notebook's manual check cells (e.g. the guard-test cell) don't move
+   anywhere, since `r&d.ipynb` never gets trimmed per its own rule above;
+   real tests get written fresh, not migrated from there.
+3. Multi-file support (upload arbitrary tables)
+4. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -251,20 +258,20 @@ deprioritized until we hit a real one (see Next up, bottom item).
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-4. Conversation memory across sessions
-5. Model backend switcher — local LLM stays primary, but add the ability to
+5. Conversation memory across sessions
+6. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code
-6. Surface tool-usage transparency to the end user — the notebook's test
+7. Surface tool-usage transparency to the end user — the notebook's test
    loop already logs "used tool" vs "answered directly" per question; carry
    this into the real UI so users can tell verified-via-code answers apart
    from raw LLM reasoning
-7. *(lowest priority, exploratory)* Dedicated functions/tools for common
+8. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-8. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
+9. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top

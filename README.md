@@ -28,6 +28,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - [x] Chart generation tool (`create_chart`) — mirrors `execute_python_code`'s shape (LLM writes plotting code against `df`), saves the figure to `outputs/*.png` (git-ignored, same rationale as `data/`) and returns the path
 - [x] Extract code into `.py` modules alongside the notebook — `finanalyticsagent/active_table.py` (current DataFrame), `tools.py`, `prompts.py`, `graph.py` (model+agent construction), `testing.py`. The notebook itself was not touched; it stays as the running R&D log, with a Step 10 proving the modules work standalone
 - [ ] Streamlit UI — visual design direction decided (desert-night/lamplight palette, `Amiri`/`Alegreya`/`JetBrains Mono` type, djinn/scroll chat personas, all via Streamlit's native `config.toml` theming — no custom CSS), see `CLAUDE.md` for the full token spec. Not built yet.
+- [ ] `pytest` test suite in `tests/` — starting with the pure, deterministic functions in `finanalyticsagent/` (no formal tests exist yet; the notebook's manual check cells stay in the notebook, per its own "never trimmed" rule)
 - [ ] Multi-file support (upload arbitrary tables)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
   - [ ] File-type router: tabular files → pandas tools, PDF/DOC → RAG
