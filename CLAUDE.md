@@ -70,6 +70,40 @@ Real financial data lives in `data/` (git-ignored, never committed). For anythin
 
 ---
 
+## Streamlit UI Design Direction (decided 2026-07-31)
+
+Design mockup approved (as an Artifact, "Bazaar Books — Streamlit UI concept").
+Not built yet — this documents the decision so it survives context resets.
+Behavior stays intentionally basic (standard chat, no gimmicks); only the
+visual identity is custom. **Everything below is achievable through
+Streamlit's `.streamlit/config.toml` `[theme]` section + `st.chat_message`'s
+`avatar` parameter — no custom CSS injection required**, verified against
+current (2026) Streamlit docs before proposing it.
+
+**Color tokens** (desert-night / lamplight, not the generic warm-cream +
+terracotta palette most AI-generated designs default to):
+- `--bg-night` `#14101f` — main chat background
+- `--bg-lamp` `#0d0a17` — sidebar background (darker: "inside the lamp")
+- `--accent-gold` `#c6963e` — assistant/djinn accent (muted brass, not neon)
+- `--accent-teal` `#3f8079` — user accent (mosaic-tile teal, not terracotta)
+- `--text-sand` `#e7dfc6` — primary text (warm parchment, not stock cream)
+- `--text-muted` `#8f8570` — secondary/caption text
+
+**Type tokens:**
+- Display (`headingFont`, used sparingly — app title only): `Amiri` — Arabic/Latin calligraphic serif, dignified rather than kitschy
+- Body (`font`): `Alegreya` — literary serif built for long-form reading
+- Utility (tool-call/debug log text): `JetBrains Mono` — keeps the transparency log ("used execute_python_code with...") visually distinct from the narrative voice
+
+**Layout concept:** two-zone — a narrow darker sidebar ("inside the lamp": data source picker, debug toggle, reset) and a wide main chat stage ("desert night"). Assistant messages get a thin gold left-border rule (light escaping the lamp); user messages get a thin teal right-border rule (mosaic tile). Charts from `create_chart` render inline in the message flow, framed, never in a popup.
+
+**Chat personas:** assistant avatar `🧞`, user avatar `📜` (a nod to the README's own tagline, "whisper your question to the tabular scroll"). Composer placeholder text reuses that exact tagline instead of a generic "Ask a question...".
+
+**Single-theme, deliberately:** no light-mode variant planned — a lit lamp against daylight doesn't carry the same feeling, so this commits to one visual world rather than trying to support both.
+
+**Still open when this gets built:** whether `create_chart`'s matplotlib output should also be re-themed (via `matplotlib.rcParams`) to match this palette, or left as default matplotlib styling — not decided yet.
+
+---
+
 ## Code Style
 
 ### Python
@@ -194,12 +228,22 @@ deprioritized until we hit a real one (see Next up, bottom item).
   knows to use it for chart/plot/visualization requests. Verified
   end-to-end through the agent, not just called directly.
 
+### Done (2026-07-31)
+- Extracted code into a `finanalyticsagent/` package alongside the notebook
+  (flat layout, not `src/`-layout — that idea is noted for later, see
+  bottom of Next up): `active_table.py`, `tools.py`, `prompts.py`,
+  `graph.py`, `testing.py`. Verified standalone (independent of any
+  notebook cell having run) both via direct script and by the user running
+  Step 10 live in their own Jupyter session.
+- Streamlit UI visual design direction decided (see "Streamlit UI Design
+  Direction" section above) — not built yet, just the design tokens and
+  layout concept, confirmed against current Streamlit theming docs.
+
 ### Next up
-1. Extract code into `.py` modules alongside the notebook (see LangGraph
-   project layout above) — notebook stays as-is, modules are additive
-2. Streamlit UI (phase 3)
-3. Multi-file support (upload arbitrary tables)
-4. RAG module (Chroma) for non-tabular files (PDF/DOC)
+1. Build the Streamlit UI (phase 3) — chat interface per the design
+   direction above, backed by `finanalyticsagent.graph.build_agent`
+2. Multi-file support (upload arbitrary tables)
+3. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -207,19 +251,23 @@ deprioritized until we hit a real one (see Next up, bottom item).
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-5. Conversation memory across sessions
-6. Model backend switcher — local LLM stays primary, but add the ability to
+4. Conversation memory across sessions
+5. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code
-7. Surface tool-usage transparency to the end user — the notebook's test
+6. Surface tool-usage transparency to the end user — the notebook's test
    loop already logs "used tool" vs "answered directly" per question; carry
    this into the real UI so users can tell verified-via-code answers apart
    from raw LLM reasoning
-8. *(lowest priority, exploratory)* Dedicated functions/tools for common
+7. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
+8. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
+   `src/finanalyticsagent/` layout — deliberately deferred once already
+   (2026-07-31), the user wanted to see the flat module split working
+   first before adding directory nesting on top
 
 ---
 
@@ -236,3 +284,4 @@ deprioritized until we hit a real one (see Next up, bottom item).
 - **Before editing `r&d.ipynb`, ask a short pre-flight check first** — e.g. "About to edit the notebook — have you saved it, and did you run anything I might not know about?" One quick question here prevents the VS Code/Jupyter desync above and confirms both sides agree on the current state before anything gets written.
 - **`git commit`/`git push` require their own explicit go-ahead, separate from permission to make the underlying code changes.** "Fix X" or "apply the changes" is not "commit and push it" — those are two different requests. Ask before committing even when the changes themselves were requested and already made, especially right after edits the user hasn't personally verified yet.
 - **When asked "why did X happen" or similar, answer the question first — do not start fixing.** Only fix once the user explicitly asks for a fix. Diagnosing and repairing in the same breath skips the user's chance to decide whether/how it should be fixed.
+- **Update README.md/CLAUDE.md roadmap checkboxes right after finishing the step they describe, not several turns later.** Design decisions and completed work (e.g. the Streamlit design direction, module extraction) should get written down promptly — don't let documentation lag behind work that's already done, especially since context can reset and undocumented decisions are expensive to redo.

@@ -26,8 +26,8 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - [x] Guard `execute_python_code` against printing huge output (e.g. an LLM-generated `print(df)` on a large real-world table) — truncates past a character limit with a clear message instead of flooding the LLM context
 - [x] Test user file upload in the notebook — `load_table(path)` generalizes loading beyond one hardcoded file (tested against a second synthetic dataset with an unrelated schema), plus a real click-to-upload flow via `ipywidgets.FileUpload`
 - [x] Chart generation tool (`create_chart`) — mirrors `execute_python_code`'s shape (LLM writes plotting code against `df`), saves the figure to `outputs/*.png` (git-ignored, same rationale as `data/`) and returns the path
-- [ ] Extract code into `.py` modules alongside the notebook (`state.py` for the current DataFrame, `tools.py`, `prompts.py`, `graph.py` for model+agent construction) — the notebook itself is not going away; it stays as the running R&D log of every step, the modules are an additional reusable layer for Streamlit to import from
-- [ ] Streamlit UI
+- [x] Extract code into `.py` modules alongside the notebook — `finanalyticsagent/active_table.py` (current DataFrame), `tools.py`, `prompts.py`, `graph.py` (model+agent construction), `testing.py`. The notebook itself was not touched; it stays as the running R&D log, with a Step 10 proving the modules work standalone
+- [ ] Streamlit UI — visual design direction decided (desert-night/lamplight palette, `Amiri`/`Alegreya`/`JetBrains Mono` type, djinn/scroll chat personas, all via Streamlit's native `config.toml` theming — no custom CSS), see `CLAUDE.md` for the full token spec. Not built yet.
 - [ ] Multi-file support (upload arbitrary tables)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
   - [ ] File-type router: tabular files → pandas tools, PDF/DOC → RAG
