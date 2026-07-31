@@ -232,3 +232,5 @@ deprioritized until we hit a real one (see Next up, bottom item).
 - **Never hardcode credentials.** All secrets in `.env`.
 - **Never commit real data.** The entire `data/` directory (except `.gitkeep`) is git-ignored on purpose — use the synthetic files in `bazaar_books/` for anything that needs to go into git or a notebook output.
 - **Prefer the fastest path to a working prototype.** This is a personal MVP, not a production system. Don't propose custom implementations when a prebuilt one works. Don't refactor unless asked.
+- **Never edit `r&d.ipynb` without an explicit go-ahead in the current message.** Editing it while the user might run cells causes real VS Code/Jupyter buffer desync (recurring, not hypothetical — happened multiple times). Wait for an explicit yes each time, not a standing blanket permission from earlier in the conversation.
+- **When asked "why did X happen" or similar, answer the question first — do not start fixing.** Only fix once the user explicitly asks for a fix. Diagnosing and repairing in the same breath skips the user's chance to decide whether/how it should be fixed.
