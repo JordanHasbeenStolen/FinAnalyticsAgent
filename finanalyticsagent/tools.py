@@ -24,6 +24,33 @@ MAX_TOOL_OUTPUT_CHARS = 4000
 OUTPUTS_DIR = Path("outputs")
 OUTPUTS_DIR.mkdir(exist_ok=True)
 
+# Matches the app's desert-night theme (see CLAUDE.md "Streamlit UI Design
+# Direction"). Transparent figure/axes so the PNG blends into the chat
+# bubble instead of showing a stark white box. Single gold hue for bars —
+# validated for contrast against the dark surface via the dataviz skill's
+# palette validator (this is a single-series magnitude chart, not a
+# multi-series categorical one, so one hue is the correct choice, not a
+# rainbow per-bar).
+CHART_STYLE = {
+    "figure.figsize": (6, 4),
+    "figure.dpi": 120,
+    "figure.facecolor": "none",
+    "axes.facecolor": "none",
+    "axes.edgecolor": "#8f8570",
+    "axes.labelcolor": "#e7dfc6",
+    "axes.titlecolor": "#e7dfc6",
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.prop_cycle": plt.cycler(color=["#c6963e"]),
+    "xtick.color": "#8f8570",
+    "ytick.color": "#8f8570",
+    "text.color": "#e7dfc6",
+    "font.family": "serif",
+    "grid.color": "#8f8570",
+    "grid.alpha": 0.25,
+    "grid.linewidth": 0.5,
+}
+
 
 @tool
 def execute_python_code(code: str) -> str:
@@ -96,18 +123,23 @@ def create_chart(code: str) -> str:
     df = active_table.get_df()
     plt.close("all")  # start from a clean figure each time
     namespace = {"df": df, "pd": pd, "plt": plt}
-    try:
-        exec(code, namespace)
-    except Exception as e:
-        return f"Error: {e}"
+    with plt.rc_context(CHART_STYLE):
+        try:
+            exec(code, namespace)
+        except Exception as e:
+            return f"Error: {e}"
 
-    fig = plt.gcf()
-    if not fig.get_axes():
-        return "Error: no chart was drawn. Call a plotting function like plt.bar(...) or plt.plot(...)."
+        fig = plt.gcf()
+        if not fig.get_axes():
+            return "Error: no chart was drawn. Call a plotting function like plt.bar(...) or plt.plot(...)."
 
-    filename = OUTPUTS_DIR / f"chart_{uuid.uuid4().hex[:8]}.png"
-    fig.savefig(filename, bbox_inches="tight")
-    plt.close(fig)
+        for ax in fig.get_axes():
+            ax.grid(axis="y", zorder=0)
+            ax.set_axisbelow(True)
+
+        filename = OUTPUTS_DIR / f"chart_{uuid.uuid4().hex[:8]}.png"
+        fig.savefig(filename, bbox_inches="tight", transparent=True)
+        plt.close(fig)
     return str(filename)
 
 

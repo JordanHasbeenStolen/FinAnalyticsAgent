@@ -13,8 +13,10 @@ from finanalyticsagent import active_table
 from finanalyticsagent.prompts import build_system_prompt
 from finanalyticsagent.tools import create_chart, execute_python_code
 
+MODEL_NAME = "Qwen/Qwen3-8B-MLX-4bit"
+
 model = ChatOpenAI(
-    model="Qwen/Qwen3-8B-MLX-4bit",
+    model=MODEL_NAME,
     base_url="http://10.195.19.15:8000/v1",
     api_key="dummy",
     temperature=0,

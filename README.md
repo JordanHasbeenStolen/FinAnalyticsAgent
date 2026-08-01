@@ -12,7 +12,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** pandas DataFrame loaded from CSV/XLSX
 - **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts
-- **UI (planned):** Streamlit for interactive chat
+- **UI:** Streamlit chat (`app.py`) — desert-night/lamplight theme via `config.toml`, tool-usage transparency toggle (on by default), chart downloads
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
@@ -27,7 +27,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - [x] Test user file upload in the notebook — `load_table(path)` generalizes loading beyond one hardcoded file (tested against a second synthetic dataset with an unrelated schema), plus a real click-to-upload flow via `ipywidgets.FileUpload`
 - [x] Chart generation tool (`create_chart`) — mirrors `execute_python_code`'s shape (LLM writes plotting code against `df`), saves the figure to `outputs/*.png` (git-ignored, same rationale as `data/`) and returns the path
 - [x] Extract code into `.py` modules alongside the notebook — `finanalyticsagent/active_table.py` (current DataFrame), `tools.py`, `prompts.py`, `graph.py` (model+agent construction), `testing.py`. The notebook itself was not touched; it stays as the running R&D log, with a Step 10 proving the modules work standalone
-- [ ] Streamlit UI — visual design direction decided (desert-night/lamplight palette, `Amiri`/`Alegreya`/`JetBrains Mono` type, djinn/scroll chat personas, all via Streamlit's native `config.toml` theming — no custom CSS), see `CLAUDE.md` for the full token spec. Not built yet.
+- [x] Streamlit UI (`app.py`) — desert-night/lamplight theme via `config.toml` (no custom CSS), djinn/scroll chat personas, tool-usage transparency (on by default, literal tool names — no roleplay in how the assistant reports its own actions), chart download button, system prompt hardened to never leak implementation details (df/pandas/file paths) to the end user
 - [ ] `pytest` test suite in `tests/` — starting with the pure, deterministic functions in `finanalyticsagent/` (no formal tests exist yet; the notebook's manual check cells stay in the notebook, per its own "never trimmed" rule)
 - [ ] Multi-file support (upload arbitrary tables)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
@@ -39,10 +39,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - [ ] Model backend switcher — local LLM stays the primary target, but add the
       ability to swap in Azure OpenAI / OpenAI endpoints (or other local
       models like DeepSeek) without rewriting the agent code
-- [ ] Surface tool-usage transparency to the end user (in the notebook's test
-      loop we already log "used tool" vs "answered directly" per question —
-      carry this into the real UI so users can tell verified-via-code answers
-      apart from raw LLM reasoning)
+- [x] Surface tool-usage transparency to the end user — done as part of the Streamlit UI above
 - [ ] *(lowest priority, exploratory)* Dedicated functions/tools for common
       table operations (e.g. groupby-aggregate, filter, growth-over-time) as
       an alternative to the generic `execute_python_code` tool — only worth

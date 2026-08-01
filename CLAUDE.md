@@ -236,19 +236,55 @@ deprioritized until we hit a real one (see Next up, bottom item).
   notebook cell having run) both via direct script and by the user running
   Step 10 live in their own Jupyter session.
 - Streamlit UI visual design direction decided (see "Streamlit UI Design
-  Direction" section above) — not built yet, just the design tokens and
-  layout concept, confirmed against current Streamlit theming docs.
+  Direction" section above) — design tokens and layout concept, confirmed
+  against current Streamlit theming docs.
+
+### Done (2026-08-01)
+- Built the Streamlit UI (`app.py`, phase 3 — MVP complete) per the design
+  direction above: sidebar (data source picker, tool-transparency toggle
+  on by default, reset button), chat via `st.chat_message`/`st.chat_input`,
+  `st.spinner` while the agent works, chart images shown inline with a
+  download button. Model name (`finanalyticsagent.graph.MODEL_NAME`)
+  surfaced in the header caption.
+- Hardened the system prompt after live review surfaced real leaks:
+  small talk no longer mentions "DataFrame"/"pandas"/"df" and stays short;
+  the assistant never repeats `create_chart`'s raw file path or says
+  "you can download this file" (the UI already shows the image + a real
+  download button, so that text was both leaky and untrue); the key
+  answer value is now consistently wrapped in markdown bold.
+- Tool-usage transparency in the UI shows the literal tool name
+  (`execute_python_code`/`create_chart`) — the "1001 Nights" theming
+  stays in the data and visual design, not in how the assistant reports
+  its own actions; that boundary matters and is now enforced in code,
+  not just prose.
 
 ### Next up
-1. Build the Streamlit UI (phase 3) — chat interface per the design
-   direction above, backed by `finanalyticsagent.graph.build_agent`
-2. Add a real `pytest` test suite in `tests/` — unit tests for the pure
-   functions in `finanalyticsagent/` (`prompts.py`, `tools.py`'s
-   `load_table`, `active_table.py`) first, since those are fast and
-   deterministic (no LLM calls). No formal tests exist yet — the
-   notebook's manual check cells (e.g. the guard-test cell) don't move
+1. Add a real `pytest` test suite in `tests/`. No formal tests exist yet —
+   the notebook's manual check cells (e.g. the guard-test cell) don't move
    anywhere, since `r&d.ipynb` never gets trimmed per its own rule above;
    real tests get written fresh, not migrated from there.
+
+   **Pure/deterministic unit tests (no LLM calls) — do these first:**
+   - `build_schema_table`/`build_preview_kv` — known small DataFrame in,
+     exact markdown/KV string out
+   - `tools.load_table` — raises `ValueError` on an unsupported extension
+   - `tools.execute_python_code`'s truncation guard — triggers at exactly
+     `MAX_TOOL_OUTPUT_CHARS`, message says to narrow the query
+   - `tools.create_chart` — returns an "Error: no chart was drawn" message
+     when the code never calls a plotting function
+   - `active_table.get_df()` — raises `RuntimeError` when nothing was set
+
+   **Coarse LLM-in-the-loop regression checks (non-deterministic, but
+   still worth automating as a substring/pattern check on the agent's
+   final answer) — each one caught a real bug during Streamlit UI review
+   (2026-08-01), so each is a genuine regression risk, not hypothetical:**
+   - Small talk ("hi", "what can you do") never mentions "DataFrame",
+     "pandas", or "df", and stays short (not a capability essay)
+   - The final answer never contains a raw file path (e.g. `outputs/` or
+     `.png`) or phrases like "you can download this file"
+   - The final answer's key value is wrapped in markdown `**bold**`
+   - `create_chart` questions actually produce a `.png` file that exists
+     on disk, with a transparent background (alpha=0 at a corner pixel)
 3. Multi-file support (upload arbitrary tables)
 4. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
@@ -261,17 +297,16 @@ deprioritized until we hit a real one (see Next up, bottom item).
 5. Conversation memory across sessions
 6. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
-   DeepSeek) without rewriting the agent code
-7. Surface tool-usage transparency to the end user — the notebook's test
-   loop already logs "used tool" vs "answered directly" per question; carry
-   this into the real UI so users can tell verified-via-code answers apart
-   from raw LLM reasoning
-8. *(lowest priority, exploratory)* Dedicated functions/tools for common
+   DeepSeek) without rewriting the agent code. Note: `app.py`'s caption
+   "nothing leaves this network" is only true for the on-prem stack — once
+   remote endpoints are switchable, that text needs to become conditional
+   on which backend is active, not a hardcoded claim
+7. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-9. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
+8. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top

@@ -1,0 +1,15 @@
+# Desert-night / lamplight theme — see CLAUDE.md "Streamlit UI Design
+# Direction" for the full rationale. Achieved entirely through Streamlit's
+# native theming, no custom CSS.
+
+[theme]
+base = "dark"
+primaryColor = "#c6963e"
+backgroundColor = "#14101f"
+secondaryBackgroundColor = "#0d0a17"
+textColor = "#e7dfc6"
+borderColor = "#2a2440"
+font = "Alegreya:https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400..900;1,400..900&display=swap"
+headingFont = "Amiri:https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+baseRadius = "large"
