@@ -5,10 +5,12 @@ A personal on-prem AI oracle for spreadsheets: summon a djinn from your local LL
 ## Overview
  
 An agentic replacement for the OpenAI Assistants-style tabular analytics workflow, rebuilt on **LangGraph** with a **locally hosted LLM** (Qwen3-8B on Apple Silicon via `mlx_lm.server`). The agent accepts natural-language questions over spreadsheet data, decides which tools to call, and returns answers, insights, or charts — all without sending data to third-party APIs.
- 
+
+![Streamlit chat screenshot](docs/screenshot.png)
+
 ## Architecture
  
-- **Orchestration:** LangGraph (ReAct pattern, custom agent graph)
+- **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents` — not a hand-rolled `StateGraph`
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** pandas DataFrame loaded from CSV/XLSX
 - **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts
@@ -18,6 +20,19 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
  
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded DataFrame, returns the result
 - `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded DataFrame, saves the figure to `outputs/*.png`, returns the file path
+
+## How to Run
+
+```bash
+cd FinAnalyticsAgent
+source .venv/bin/activate      # or: uv sync
+streamlit run app.py
+```
+
+Requires a running `mlx_lm.server` endpoint reachable at the address configured
+in `finanalyticsagent/graph.py` (or update it to point at your own OpenAI-compatible
+local server).
+
 ## Roadmap
  
 - [x] Repo skeleton and environment setup
@@ -48,9 +63,11 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 ## Stack
  
 - Python 3.13, `uv` for env management
-- `langgraph`, `langchain`, `langchain-openai`, `pandas`, `matplotlib`, `ipywidgets`
+- `langgraph`, `langchain`, `langchain-openai`, `pandas`, `matplotlib`, `ipywidgets`, `streamlit`
 - Development in WSL2 / VS Code / Jupyter
 - On-prem inference: `mlx_lm.server` on Apple Silicon
+
 ## Status
  
-🚧 Early development. Prototype in Jupyter, refactoring toward a reusable package.
+🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end; next
+up is a real test suite, then multi-file support and a RAG module for PDFs.
