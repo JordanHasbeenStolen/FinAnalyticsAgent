@@ -45,8 +45,8 @@ local server).
 - [x] Streamlit UI (`app.py`) — desert-night/lamplight theme via `config.toml` (no custom CSS), djinn/scroll chat personas, tool-usage transparency (on by default, literal tool names — no roleplay in how the assistant reports its own actions), chart download button, system prompt hardened to never leak implementation details (df/pandas/file paths) to the end user
 - [x] `pytest` test suite in `tests/` — pure/deterministic unit tests on `finanalyticsagent/` (schema/preview formatting, `load_table`, the output-truncation guard, the no-chart-drawn error, `active_table`'s `RuntimeError`) plus coarse LLM-in-the-loop regression checks tied to real incidents (small-talk leaks, raw file-path leaks, bold key values, chart transparency); both layers also wired into `r&d.ipynb` as Step 11
 - [ ] Multi-file support — agent sees several named tables at once (`dfs['name']`), matching how the legacy Assistants API's Code Interpreter worked (see CLAUDE.md for the full phased plan)
-  - [ ] Prototype in `r&d.ipynb` (new steps only) against the real LLM first
-  - [ ] Extract into `finanalyticsagent/` (`active_table.py`, `tools.py`, `prompts.py`, `graph.py`), old single-table functions kept as deprecated shims so Step 10 needs no changes
+  - [x] Prototype in `r&d.ipynb` (new steps only) against the real LLM first
+  - [x] Extract into `finanalyticsagent/` (`active_table.py`, `tools.py`, `prompts.py`, `graph.py`), old single-table functions kept as deprecated shims so Step 10 needs no changes
   - [ ] Update/add tests
   - [ ] Update `app.py` (multi-select demo files + multi-file upload)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
