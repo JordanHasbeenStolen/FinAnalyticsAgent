@@ -68,6 +68,7 @@ Real financial data lives in `data/` (git-ignored, never committed). For anythin
 - **Files (both tracked in git, not ignored):**
   - `bazaar_books/caravan_accounts.csv` — columns `Realm, Guild_Name, Year, Quarter, Operating_Income, EBITDA, Tax, Net_Income, GOGS`, same shape as the real `new_fin.csv`, values fully synthetic (randomly generated, not derived from real data)
   - `bazaar_books/guild_ledger.csv` — a second synthetic dataset with a deliberately different, non-financial schema (`Guild_Name, Year, Quarter, Market_Share_Pct, Employee_Count, Customer_Satisfaction_Score`), used to prove the agent/prompt/tool pipeline isn't secretly tied to the first file's column names
+  - `bazaar_books/realm_metadata.csv` — a third synthetic dataset (`Realm, Region`), used in the multi-file support prototype (`r&d.ipynb` Step 12) as the table with no column in common with `guild_ledger` — a question needing both must bridge through `caravan_accounts`, which shares a column with each
 - **Realms:** invented fantastical lands (e.g. "Oasis of Whispering Sands", "Peak of the Sleeping Djinn") — deliberately not real countries
 - **Guilds:** in-universe trading houses/guilds (e.g. "Djinn-Forged Ironworks", "Forty Thieves Foundry")
 - **Years:** 717–718 — the historical Umayyad siege of Constantinople, the event the Sharrkan/Zau al-Makan story is loosely modeled on
@@ -216,20 +217,23 @@ reduce adherence").
         `get_tables()`, expose `dfs` (not `df`) in the exec namespace;
         docstrings updated accordingly.
       - `prompts.py`: `build_system_prompt` renders one schema+preview
-        block per table, each named as `dfs['name']`. **Must explicitly
-        instruct joining on ALL shared columns between two tables, not
-        just one** — validated 2026-08-04: asked a question needing a
-        transitive join across 3 tables (A↔B↔C, A and C sharing no column
-        directly), the model correctly recognized the bridge-table pattern
-        and produced a right answer, but its *first* merge used only
-        `Guild_Name` instead of `Guild_Name`+`Year`+`Quarter` (both tables
-        have multiple rows per guild) — inflated 96 correct rows to 768.
-        Verified independently: this specific question's `mean()`
-        aggregation happened to be immune to the duplication (each
-        duplicate carried the same value), so the visible answer was still
-        right — but a `sum()` or `count()`-based question would not have
-        been. This is a real, silent correctness risk the prompt should
-        guard against explicitly, this test just didn't happen to expose it.
+        block per table, each named as `dfs['name']`. **Known, narrower-
+        than-first-thought risk, not yet fixed:** direct two-table joins
+        are reliable — verified 4/4 across separate runs, always merging
+        on all shared columns (`Guild_Name`+`Year`+`Quarter`), never just
+        one. But **transitive/bridge joins across three tables** (A↔B↔C,
+        A and C sharing no column directly) are looser 4/4 times tested —
+        the model correctly recognizes the bridge-table pattern and reaches
+        a right answer, but the *first* merge in the chain used only
+        `Guild_Name`, inflating 96 correct rows to 768. A plain prompt
+        instruction ("merge on all shared columns") did **not** fix this
+        across three follow-up attempts (including the user's own live run
+        in `r&d.ipynb`) — the risk is specific to multi-hop
+        joins, not joins in general, and needs a stronger fix (e.g. a
+        concrete worked multi-hop example in the tool docstring, not an
+        abstract rule) if/when it's worth pursuing further. So far every
+        test happened to use `mean()`, which is immune to the row
+        duplication; `sum()`/`count()`-based questions would not be.
       - `graph.py`: `build_agent` accepts either a `dict[str, DataFrame]`
         (new) or a single `DataFrame` (deprecated, silently wrapped as
         `{"df": df}`) — Step 10's `build_agent(module_df)` call needs zero
