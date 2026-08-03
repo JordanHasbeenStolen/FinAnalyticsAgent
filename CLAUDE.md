@@ -315,7 +315,49 @@ deprioritized until we hit a real one (see Next up, bottom item).
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
    — the current wording only forbids prose mentions of the file path/
    "download this file", not markup that embeds it.
-2. Multi-file support (upload arbitrary tables)
+2. Multi-file support — give the agent simultaneous access to several named
+   tables at once (`dfs['name']`), matching how the legacy OpenAI Assistants
+   API's Code Interpreter actually worked (attached files all sit in one
+   sandbox together — documented limit is 20 files, not the ~10 half-
+   remembered; verified against official docs, not memory). Architecture
+   decided 2026-08-03, not built yet — phases, in order:
+   1. **Prototype in `r&d.ipynb` first, new steps only, nothing existing
+      touched** — same process this project has always used for every
+      prior feature (schema/prompt, `execute_python_code`, `create_chart`):
+      prove it live against the real LLM before extracting into modules.
+      Build a `dfs = {"name": df, ...}` dict by hand, a multi-table system
+      prompt, a tool whose exec namespace exposes `dfs`; test a question
+      needing one table and, if possible, one needing both combined.
+   2. **Only once proven working in the notebook**, extract into
+      `finanalyticsagent/`:
+      - `active_table.py`: new `set_tables(tables: dict[str, pd.DataFrame])`
+        / `get_tables()`. Old `set_df`/`get_df` become
+        `@warnings.deprecated` shims (PEP 702, native in our Python 3.13 —
+        not a hand-rolled deprecation) that wrap the new functions — kept
+        only so `r&d.ipynb`'s Step 10 keeps working completely unmodified,
+        not because the old single-table API is still a good default.
+      - `tools.py`: `execute_python_code`/`create_chart` read
+        `get_tables()`, expose `dfs` (not `df`) in the exec namespace;
+        docstrings updated accordingly.
+      - `prompts.py`: `build_system_prompt` renders one schema+preview
+        block per table, each named as `dfs['name']`.
+      - `graph.py`: `build_agent` accepts either a `dict[str, DataFrame]`
+        (new) or a single `DataFrame` (deprecated, silently wrapped as
+        `{"df": df}`) — Step 10's `build_agent(module_df)` call needs zero
+        changes.
+   3. Update/add tests for the new multi-table behavior. Existing tests
+      shouldn't need changes — none of them hardcode a variable name inside
+      exec'd code strings, so the deprecated shims keep them green as-is.
+   4. **Last**, update `app.py`: sidebar `st.multiselect` over demo files +
+      `st.file_uploader(accept_multiple_files=True)`, merged into one
+      `tables` dict; rebuild the agent when the *set* of loaded tables
+      changes, not a single string key.
+
+   Rejected approach: physically moving old code to an "archive" — checked
+   against real industry practice (PEP 702, PEP 387, adapter/shim pattern
+   sources) before deciding; the standard advice is the opposite — keep
+   deprecated functions in place as thin wrappers over the new
+   implementation, don't fork the logic into a second, untested location.
 3. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
