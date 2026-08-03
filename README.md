@@ -43,7 +43,7 @@ local server).
 - [x] Chart generation tool (`create_chart`) — mirrors `execute_python_code`'s shape (LLM writes plotting code against `df`), saves the figure to `outputs/*.png` (git-ignored, same rationale as `data/`) and returns the path
 - [x] Extract code into `.py` modules alongside the notebook — `finanalyticsagent/active_table.py` (current DataFrame), `tools.py`, `prompts.py`, `graph.py` (model+agent construction), `testing.py`. The notebook itself was not touched; it stays as the running R&D log, with a Step 10 proving the modules work standalone
 - [x] Streamlit UI (`app.py`) — desert-night/lamplight theme via `config.toml` (no custom CSS), djinn/scroll chat personas, tool-usage transparency (on by default, literal tool names — no roleplay in how the assistant reports its own actions), chart download button, system prompt hardened to never leak implementation details (df/pandas/file paths) to the end user
-- [ ] `pytest` test suite in `tests/` — starting with the pure, deterministic functions in `finanalyticsagent/` (no formal tests exist yet; the notebook's manual check cells stay in the notebook, per its own "never trimmed" rule)
+- [x] `pytest` test suite in `tests/` — pure/deterministic unit tests on `finanalyticsagent/` (schema/preview formatting, `load_table`, the output-truncation guard, the no-chart-drawn error, `active_table`'s `RuntimeError`) plus coarse LLM-in-the-loop regression checks tied to real incidents (small-talk leaks, raw file-path leaks, bold key values, chart transparency); both layers also wired into `r&d.ipynb` as Step 11
 - [ ] Multi-file support (upload arbitrary tables)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
   - [ ] File-type router: tabular files → pandas tools, PDF/DOC → RAG
@@ -69,5 +69,6 @@ local server).
 
 ## Status
  
-🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end; next
-up is a real test suite, then multi-file support and a RAG module for PDFs.
+🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end,
+backed by a `pytest` test suite; next up is multi-file support and a RAG
+module for PDFs.

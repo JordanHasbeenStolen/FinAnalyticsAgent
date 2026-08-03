@@ -258,35 +258,43 @@ deprioritized until we hit a real one (see Next up, bottom item).
   its own actions; that boundary matters and is now enforced in code,
   not just prose.
 
+### Done (2026-08-02)
+- Added a real `pytest` test suite in `tests/` — `pytest` is a dev-only
+  dependency (`dependency-groups.dev` in `pyproject.toml`, per PEP 735, not
+  the main `dependencies` list, since end users of the Streamlit app never
+  need it).
+  - **Pure/deterministic unit tests** (no LLM calls, sub-second):
+    `test_prompts.py` (`build_schema_table`/`build_preview_kv`),
+    `test_tools.py` (`load_table`'s `ValueError`, the truncation guard, the
+    no-chart-drawn error), `test_active_table.py` (`get_df()`'s
+    `RuntimeError`). `conftest.py` resets `active_table`'s module-level
+    `_active_df` before/after every test to avoid state leaking between them.
+  - **Coarse LLM-in-the-loop regression checks** (`test_agent_regressions.py`,
+    needs a reachable `mlx_lm.server`, ~80s for the full layer): small talk never
+    mentions "DataFrame"/"pandas"/"df", the chart answer never leaks a raw
+    file path, the key answer value is bolded, `create_chart` produces a
+    real transparent PNG. This layer already caught one real, previously
+    unnoticed regression: the agent once wrapped the chart path in an
+    `<image src="outputs/....png" />` tag — a leak the existing prompt
+    wording didn't anticipate (it only forbade prose phrasing like "you can
+    download this file"). The run is genuinely non-deterministic even with
+    `temperature=0` (confirmed empirically — three identical requests with a
+    fixed `seed=42` still produced three differently-worded answers, so this
+    local model/server doesn't honor `seed` for reproducibility); the
+    `<image src=...>` leak has not recurred since, but the prompt itself has
+    **not** been hardened against it yet — still open, tracked below.
+  - Both layers are also wired into `r&d.ipynb` as Step 11 (two `!python -m
+    pytest ... --no-header` cells — `--no-header` keeps the local username/
+    path out of committed cell output; bare `pytest`, without `python -m`,
+    fails here with `ModuleNotFoundError` since `finanalyticsagent` isn't an
+    installed package, only importable when the cwd is on `sys.path`).
+
 ### Next up
-1. Add a real `pytest` test suite in `tests/`. No formal tests exist yet —
-   the notebook's manual check cells (e.g. the guard-test cell) don't move
-   anywhere, since `r&d.ipynb` never gets trimmed per its own rule above;
-   real tests get written fresh, not migrated from there.
-
-   **Pure/deterministic unit tests (no LLM calls) — do these first:**
-   - `build_schema_table`/`build_preview_kv` — known small DataFrame in,
-     exact markdown/KV string out
-   - `tools.load_table` — raises `ValueError` on an unsupported extension
-   - `tools.execute_python_code`'s truncation guard — triggers at exactly
-     `MAX_TOOL_OUTPUT_CHARS`, message says to narrow the query
-   - `tools.create_chart` — returns an "Error: no chart was drawn" message
-     when the code never calls a plotting function
-   - `active_table.get_df()` — raises `RuntimeError` when nothing was set
-
-   **Coarse LLM-in-the-loop regression checks (non-deterministic, but
-   still worth automating as a substring/pattern check on the agent's
-   final answer) — each one caught a real bug during Streamlit UI review
-   (2026-08-01), so each is a genuine regression risk, not hypothetical:**
-   - Small talk ("hi", "what can you do") never mentions "DataFrame",
-     "pandas", or "df", and stays short (not a capability essay)
-   - The final answer never contains a raw file path (e.g. `outputs/` or
-     `.png`) or phrases like "you can download this file"
-   - The final answer's key value is wrapped in markdown `**bold**`
-   - `create_chart` questions actually produce a `.png` file that exists
-     on disk, with a transparent background (alpha=0 at a corner pixel)
-3. Multi-file support (upload arbitrary tables)
-4. RAG module (Chroma) for non-tabular files (PDF/DOC)
+1. Harden `prompts.py` against the `<image src="...png" />` leak found above
+   — the current wording only forbids prose mentions of the file path/
+   "download this file", not markup that embeds it.
+2. Multi-file support (upload arbitrary tables)
+3. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -294,19 +302,19 @@ deprioritized until we hit a real one (see Next up, bottom item).
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-5. Conversation memory across sessions
-6. Model backend switcher — local LLM stays primary, but add the ability to
+4. Conversation memory across sessions
+5. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code. Note: `app.py`'s caption
    "nothing leaves this network" is only true for the on-prem stack — once
    remote endpoints are switchable, that text needs to become conditional
    on which backend is active, not a hardcoded claim
-7. *(lowest priority, exploratory)* Dedicated functions/tools for common
+6. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-8. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
+7. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top
