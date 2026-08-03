@@ -55,6 +55,15 @@ with st.sidebar:
 
     show_debug = st.checkbox("Show which tool was used", value=True)
 
+    memory_window = st.slider(
+        "Conversation memory (previous messages)",
+        min_value=0,
+        max_value=20,
+        value=3,
+        help="How many earlier messages the djinn remembers. Lower this if "
+        "answers start taking too long or the app struggles.",
+    )
+
     if st.button("↺ Reset conversation"):
         st.session_state.messages = []
         st.rerun()
@@ -95,8 +104,22 @@ if question:
     with st.chat_message("user", avatar="📜"):
         st.markdown(question)
 
+    # Include up to `memory_window` earlier messages (the current question is
+    # already the last entry in st.session_state.messages, appended above).
+    history = [
+        {"role": m["role"], "content": m["content"]}
+        for m in st.session_state.messages[-(memory_window + 1) :]
+    ]
+
     with st.spinner("🧞 Summoning an answer from the ledger..."):
-        result = st.session_state.agent.invoke({"messages": [{"role": "user", "content": question}]})
+        try:
+            result = st.session_state.agent.invoke({"messages": history})
+        except Exception:
+            st.error(
+                "The djinn is taking too long to answer. Try lowering "
+                '"Conversation memory" in the sidebar, or ask a shorter question.'
+            )
+            st.stop()
 
     tool_names_used = [
         call["name"]

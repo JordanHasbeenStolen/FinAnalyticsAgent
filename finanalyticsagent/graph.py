@@ -21,6 +21,11 @@ model = ChatOpenAI(
     api_key="dummy",
     temperature=0,
     max_tokens=8192,
+    # 180s: ~2-3x the slowest single-answer latency measured against this
+    # server (worst case observed ~70-90s for a heavy reasoning question) —
+    # without this, a struggling/crashed Mac hangs the Streamlit app forever
+    # instead of surfacing a catchable error.
+    request_timeout=180,
 )
 
 
