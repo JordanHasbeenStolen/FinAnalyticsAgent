@@ -29,6 +29,26 @@ model = ChatOpenAI(
 )
 
 
+def answer_was_truncated(result: dict) -> bool:
+    """Check whether the agent's final answer was cut off by the token limit.
+
+    Qwen3's hidden `<think>` reasoning shares the same `max_tokens` budget as
+    the visible answer, and its length varies wildly between questions
+    (observed anywhere from ~60 to 2000+ tokens on near-identical prompts) —
+    so it can occasionally consume the whole budget before any visible text
+    is produced. Checking `finish_reason == "length"` is the standard way to
+    detect this (rather than guessing from answer length/content).
+
+    Args:
+        result: the dict returned by agent.invoke(...).
+
+    Returns:
+        True if the last AI message was cut off by the token limit.
+    """
+    last_ai_message = [m for m in result["messages"] if m.type == "ai"][-1]
+    return last_ai_message.response_metadata.get("finish_reason") == "length"
+
+
 def build_agent(df: pd.DataFrame):
     """Build a fresh agent bound to the given DataFrame.
 

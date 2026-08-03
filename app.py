@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from finanalyticsagent.graph import MODEL_NAME, build_agent
+from finanalyticsagent.graph import MODEL_NAME, answer_was_truncated, build_agent
 
 DEMO_FILES = {
     "Demo ledger (financial)": "bazaar_books/caravan_accounts.csv",
@@ -60,8 +60,9 @@ with st.sidebar:
         min_value=0,
         max_value=20,
         value=3,
-        help="How many earlier messages the djinn remembers. Lower this if "
-        "answers start taking too long or the app struggles.",
+        help="How many earlier messages the djinn remembers (a 'sliding "
+        "window'). Lower this if answers start taking too long or the app "
+        "struggles.",
     )
 
     if st.button("↺ Reset conversation"):
@@ -120,6 +121,10 @@ if question:
                 '"Conversation memory" in the sidebar, or ask a shorter question.'
             )
             st.stop()
+
+    if answer_was_truncated(result):
+        st.error("The answer got cut off before it was finished. Please try again.")
+        st.stop()
 
     tool_names_used = [
         call["name"]

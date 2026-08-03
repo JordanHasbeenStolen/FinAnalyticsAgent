@@ -289,6 +289,28 @@ deprioritized until we hit a real one (see Next up, bottom item).
     fails here with `ModuleNotFoundError` since `finanalyticsagent` isn't an
     installed package, only importable when the cwd is on `sys.path`).
 
+### Done (2026-08-02, later same day)
+- Gave the agent short-term conversation memory: `app.py` was passing only
+  the current question to `agent.invoke()` on every turn (confirmed by
+  reading the code, not assumed) — so the agent forgot everything after a
+  single message, even within one open browser tab. Fixed with a manual
+  sliding window (Path 1 — plain `st.session_state.messages` slicing, not
+  LangGraph's `MemorySaver`/`thread_id`, which would fight Streamlit's
+  rerun-every-interaction model more): a sidebar slider ("Conversation
+  memory (previous messages)", default 3) controls how many prior messages
+  get included. Paired with `request_timeout=180` on the model in
+  `graph.py` — measured real per-answer latency first (20-26s for a simple
+  lookup/chart/heavy-reasoning question each, via direct timed
+  `agent.invoke()` calls against the live server) rather than guessing; 180s
+  is a ~2-3x safety margin over the worst case, so a struggling Mac now
+  surfaces a catchable error in the UI (with a hint to lower the memory
+  slider) instead of hanging Streamlit forever.
+  - **Scope note:** this is in-session memory only (per open browser tab,
+    resets on "↺ Reset conversation" or a full app restart) — not
+    persistence across app restarts/machine reboots. If that's ever needed,
+    it's a different, bigger piece of work (e.g. writing history to disk or
+    a database keyed by session), not attempted here.
+
 ### Next up
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
    — the current wording only forbids prose mentions of the file path/
@@ -302,7 +324,10 @@ deprioritized until we hit a real one (see Next up, bottom item).
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-4. Conversation memory across sessions
+4. *(lowest priority, exploratory)* True persistence across app restarts —
+   in-session memory is done (see above); this would need writing history
+   to disk/a database, only worth it if the in-session-only version proves
+   insufficient in practice
 5. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code. Note: `app.py`'s caption
