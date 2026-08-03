@@ -111,7 +111,11 @@ if question:
     for name in tool_names_used:
         if name not in seen:
             seen.append(name)
-    tool_note = f"✨ {', '.join(seen)}" if seen else None
+    if seen:
+        label = "Tool" if len(seen) == 1 else "Tools"
+        tool_note = f"✨ {label} used: {', '.join(seen)}"
+    else:
+        tool_note = None
 
     image_path = None
     for tool_message in result["messages"]:
