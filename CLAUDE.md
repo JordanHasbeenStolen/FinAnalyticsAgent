@@ -25,7 +25,7 @@ Context file for Claude Code. Read this file at the start of every session in th
 - **Orchestration:** LangGraph 1.2.x
 - **LangChain:** 1.3.x (v1.0 released April 2026 with breaking changes — do not rely on pre-1.0 patterns)
 - **Data:** pandas, matplotlib, openpyxl, ipywidgets (for the notebook's file-upload widget)
-- **UI (planned):** Streamlit
+- **UI:** Streamlit (`app.py`)
 
 Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via `uv add <package>`.
 
@@ -45,7 +45,13 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 `TypedDict` with `messages: Annotated[list[AnyMessage], operator.add]`.
 
 ### Memory
-`MemorySaver` for in-session continuity. `thread_id` = session identifier.
+Not LangGraph's `MemorySaver`/`thread_id` — deliberately avoided, since it
+would fight Streamlit's rerun-every-interaction model more than it'd help.
+Instead, `app.py` builds the message history to send from a plain
+`st.session_state.messages` slice (a sidebar slider controls how many prior
+messages, default 3) — in-session only, resets on "↺ Reset conversation" or
+a full app restart. See `CHANGELOG.md` (2026-08-02) for how this was found
+and fixed.
 
 ### Data flow
 The full DataFrame is **never** put into the LLM prompt. Only:
@@ -70,10 +76,11 @@ Real financial data lives in `data/` (git-ignored, never committed). For anythin
 
 ---
 
-## Streamlit UI Design Direction (decided 2026-07-31)
+## Streamlit UI Design Direction
 
-Design mockup approved (as an Artifact, "Bazaar Books — Streamlit UI concept").
-Not built yet — this documents the decision so it survives context resets.
+Design mockup approved (as an Artifact, "Bazaar Books — Streamlit UI concept"),
+built in `app.py` (see `CHANGELOG.md`, 2026-08-01). Kept here as ongoing
+reference for the design tokens/rationale, not just a historical decision.
 Behavior stays intentionally basic (standard chat, no gimmicks); only the
 visual identity is custom. **Everything below is achievable through
 Streamlit's `.streamlit/config.toml` `[theme]` section + `st.chat_message`'s
@@ -100,7 +107,7 @@ terracotta palette most AI-generated designs default to):
 
 **Single-theme, deliberately:** no light-mode variant planned — a lit lamp against daylight doesn't carry the same feeling, so this commits to one visual world rather than trying to support both.
 
-**Still open when this gets built:** whether `create_chart`'s matplotlib output should also be re-themed (via `matplotlib.rcParams`) to match this palette, or left as default matplotlib styling — not decided yet.
+**Resolved:** `create_chart`'s matplotlib output is re-themed to match this palette — see `tools.py`'s `CHART_STYLE` (transparent figure/axes, the same gold/muted-sand colors, validated for contrast via the `dataviz` skill's palette checker).
 
 ---
 
@@ -115,32 +122,19 @@ terracotta palette most AI-generated designs default to):
 - Group imports: stdlib → third-party → local. Blank line between groups.
 
 ### LangGraph project layout
-Add `.py` modules alongside the notebook once code stabilizes — **the
-notebook is not being deleted or replaced**; it stays as the running R&D
-log of every step, for anyone reading the repo to follow the reasoning.
-The modules are an additional reusable layer that Streamlit (and future
-code) imports from, so logic doesn't have to be copy-pasted out of the
-notebook. Verified against the official `application-structure` docs and
-the real `langchain-ai/react-agent` and `retrieval-agent-template` repos
-(2026-07-28) — `nodes.py` and `build_agent()` are NOT used in any current
-official template, so we drop them:
-- `state.py` — NOT a LangGraph TypedDict state (we don't use raw
-  `StateGraph`, we use `create_agent` which manages its own internal
-  state). Here it just holds the current `df` (a get/set pair), since
-  `tools.py` and `prompts.py` both need to read whichever table is
-  currently loaded, and a plain module-level variable in one file doesn't
-  work once the code is split across files.
+`.py` modules live alongside the notebook (**the notebook is not being
+deleted or replaced** — it stays as the running R&D log; the modules are a
+reusable layer that Streamlit and tests import from):
+- `active_table.py` — holds the current DataFrame (get/set pair). Not a
+  LangGraph `TypedDict` state — we don't use raw `StateGraph`, `create_agent`
+  manages its own internal state; this just lets `tools.py`/`prompts.py`
+  both read whichever table is currently loaded.
 - `tools.py` — `execute_python_code`, `create_chart`
 - `prompts.py` — `build_schema_table`, `build_preview_kv`,
   `SYSTEM_PROMPT_TEMPLATE`, `build_system_prompt`
-- `graph.py` — the `model` and a `build_agent(df)` function that sets the
-  active table in `state`, builds the system prompt, and returns a fresh
-  `create_agent(...)` — not a module-level `build_agent()` factory with no
-  arguments; ours takes `df` because the table changes at runtime (file
-  upload), unlike the official templates' static graphs
-- No official project-structure guidance exists yet for the newer
-  `create_agent` (`langchain.agents`) API we're actually using — this layout
-  is our own reasonable choice, not a documented standard for that API
+- `graph.py` — the `model` and `build_agent(df)`, which takes `df` as an
+  argument (not a zero-arg factory) since the active table changes at
+  runtime (file upload)
 
 ### Notebooks
 - Names: `NN_description.ipynb` (leading number for order).
@@ -188,128 +182,10 @@ git push
 
 ## Current Status & Next Steps
 
-### Done
-- [x] Repo initialized, project structure in place
-- [x] Dependencies installed via uv
-- [x] Stack check passes — LLM responds via LangChain
-- [x] MVP: synthetic dataset (`bazaar_books/caravan_accounts.csv`), schema+preview
-      system prompt, `execute_python_code` tool, agent via `create_agent`
-      (not the deprecated `create_react_agent`), first end-to-end queries
-      confirmed working ("highest net income by realm", "most profitable
-      company" — agent correctly maps natural-language terms to columns)
-
-### Validated (2026-07-29)
-Ran the agent against reference questions adapted from the legacy Forvis
-Mazars assistant's sample queries + this project's README samples: single
-aggregation, per-quarter grouping, growth-over-time, qualitative "why"
-reasoning, and small talk. The generic `execute_python_code` tool + LLM
-reasoning alone handled **all of them correctly** once `max_tokens` was
-raised from 2048 to 8192 (Qwen3's hidden `<think>` reasoning was hitting the
-old limit before producing visible output — confirmed via `finish_reason`
-and `completion_tokens` in `response_metadata`). No case so far where the
-generic tool proved insufficient — dedicated per-operation tools are
-deprioritized until we hit a real one (see Next up, bottom item).
-
-### Done (2026-07-30)
-- Guard `execute_python_code` against printing huge output — truncates past
-  `MAX_TOOL_OUTPUT_CHARS` with a clear message telling the model to narrow
-  its query, instead of flooding the LLM context. Verified with a
-  simulated large-output test (our real dataset is too small to trigger it
-  naturally).
-- Test user file upload in the notebook — `load_table(path)` generalizes
-  loading beyond the one hardcoded CSV (verified against a second
-  synthetic dataset, `guild_ledger.csv`, with an unrelated schema), plus a
-  real click-to-upload flow via `ipywidgets.FileUpload`, tested against
-  both a synthetic file and a real one (`data/new_fin.csv`, output not
-  committed).
-- `create_chart` tool — mirrors `execute_python_code`'s shape (LLM writes
-  matplotlib code against `df`), saves the figure to `outputs/*.png`
-  (git-ignored) and returns the path. System prompt updated so the agent
-  knows to use it for chart/plot/visualization requests. Verified
-  end-to-end through the agent, not just called directly.
-
-### Done (2026-07-31)
-- Extracted code into a `finanalyticsagent/` package alongside the notebook
-  (flat layout, not `src/`-layout — that idea is noted for later, see
-  bottom of Next up): `active_table.py`, `tools.py`, `prompts.py`,
-  `graph.py`, `testing.py`. Verified standalone (independent of any
-  notebook cell having run) both via direct script and by the user running
-  Step 10 live in their own Jupyter session.
-- Streamlit UI visual design direction decided (see "Streamlit UI Design
-  Direction" section above) — design tokens and layout concept, confirmed
-  against current Streamlit theming docs.
-
-### Done (2026-08-01)
-- Built the Streamlit UI (`app.py`, phase 3 — MVP complete) per the design
-  direction above: sidebar (data source picker, tool-transparency toggle
-  on by default, reset button), chat via `st.chat_message`/`st.chat_input`,
-  `st.spinner` while the agent works, chart images shown inline with a
-  download button. Model name (`finanalyticsagent.graph.MODEL_NAME`)
-  surfaced in the header caption.
-- Hardened the system prompt after live review surfaced real leaks:
-  small talk no longer mentions "DataFrame"/"pandas"/"df" and stays short;
-  the assistant never repeats `create_chart`'s raw file path or says
-  "you can download this file" (the UI already shows the image + a real
-  download button, so that text was both leaky and untrue); the key
-  answer value is now consistently wrapped in markdown bold.
-- Tool-usage transparency in the UI shows the literal tool name
-  (`execute_python_code`/`create_chart`) — the "1001 Nights" theming
-  stays in the data and visual design, not in how the assistant reports
-  its own actions; that boundary matters and is now enforced in code,
-  not just prose.
-
-### Done (2026-08-02)
-- Added a real `pytest` test suite in `tests/` — `pytest` is a dev-only
-  dependency (`dependency-groups.dev` in `pyproject.toml`, per PEP 735, not
-  the main `dependencies` list, since end users of the Streamlit app never
-  need it).
-  - **Pure/deterministic unit tests** (no LLM calls, sub-second):
-    `test_prompts.py` (`build_schema_table`/`build_preview_kv`),
-    `test_tools.py` (`load_table`'s `ValueError`, the truncation guard, the
-    no-chart-drawn error), `test_active_table.py` (`get_df()`'s
-    `RuntimeError`). `conftest.py` resets `active_table`'s module-level
-    `_active_df` before/after every test to avoid state leaking between them.
-  - **Coarse LLM-in-the-loop regression checks** (`test_agent_regressions.py`,
-    needs a reachable `mlx_lm.server`, ~80s for the full layer): small talk never
-    mentions "DataFrame"/"pandas"/"df", the chart answer never leaks a raw
-    file path, the key answer value is bolded, `create_chart` produces a
-    real transparent PNG. This layer already caught one real, previously
-    unnoticed regression: the agent once wrapped the chart path in an
-    `<image src="outputs/....png" />` tag — a leak the existing prompt
-    wording didn't anticipate (it only forbade prose phrasing like "you can
-    download this file"). The run is genuinely non-deterministic even with
-    `temperature=0` (confirmed empirically — three identical requests with a
-    fixed `seed=42` still produced three differently-worded answers, so this
-    local model/server doesn't honor `seed` for reproducibility); the
-    `<image src=...>` leak has not recurred since, but the prompt itself has
-    **not** been hardened against it yet — still open, tracked below.
-  - Both layers are also wired into `r&d.ipynb` as Step 11 (two `!python -m
-    pytest ... --no-header` cells — `--no-header` keeps the local username/
-    path out of committed cell output; bare `pytest`, without `python -m`,
-    fails here with `ModuleNotFoundError` since `finanalyticsagent` isn't an
-    installed package, only importable when the cwd is on `sys.path`).
-
-### Done (2026-08-02, later same day)
-- Gave the agent short-term conversation memory: `app.py` was passing only
-  the current question to `agent.invoke()` on every turn (confirmed by
-  reading the code, not assumed) — so the agent forgot everything after a
-  single message, even within one open browser tab. Fixed with a manual
-  sliding window (Path 1 — plain `st.session_state.messages` slicing, not
-  LangGraph's `MemorySaver`/`thread_id`, which would fight Streamlit's
-  rerun-every-interaction model more): a sidebar slider ("Conversation
-  memory (previous messages)", default 3) controls how many prior messages
-  get included. Paired with `request_timeout=180` on the model in
-  `graph.py` — measured real per-answer latency first (20-26s for a simple
-  lookup/chart/heavy-reasoning question each, via direct timed
-  `agent.invoke()` calls against the live server) rather than guessing; 180s
-  is a ~2-3x safety margin over the worst case, so a struggling Mac now
-  surfaces a catchable error in the UI (with a hint to lower the memory
-  slider) instead of hanging Streamlit forever.
-  - **Scope note:** this is in-session memory only (per open browser tab,
-    resets on "↺ Reset conversation" or a full app restart) — not
-    persistence across app restarts/machine reboots. If that's ever needed,
-    it's a different, bigger piece of work (e.g. writing history to disk or
-    a database keyed by session), not attempted here.
+Dated history of completed/validated work moved to `CHANGELOG.md` (2026-08-04
+— kept CLAUDE.md focused on active/current content, per Claude Code's own
+documented guidance that files over ~200 lines "consume more context and may
+reduce adherence").
 
 ### Next up
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
@@ -340,7 +216,20 @@ deprioritized until we hit a real one (see Next up, bottom item).
         `get_tables()`, expose `dfs` (not `df`) in the exec namespace;
         docstrings updated accordingly.
       - `prompts.py`: `build_system_prompt` renders one schema+preview
-        block per table, each named as `dfs['name']`.
+        block per table, each named as `dfs['name']`. **Must explicitly
+        instruct joining on ALL shared columns between two tables, not
+        just one** — validated 2026-08-04: asked a question needing a
+        transitive join across 3 tables (A↔B↔C, A and C sharing no column
+        directly), the model correctly recognized the bridge-table pattern
+        and produced a right answer, but its *first* merge used only
+        `Guild_Name` instead of `Guild_Name`+`Year`+`Quarter` (both tables
+        have multiple rows per guild) — inflated 96 correct rows to 768.
+        Verified independently: this specific question's `mean()`
+        aggregation happened to be immune to the duplication (each
+        duplicate carried the same value), so the visible answer was still
+        right — but a `sum()` or `count()`-based question would not have
+        been. This is a real, silent correctness risk the prompt should
+        guard against explicitly, this test just didn't happen to expose it.
       - `graph.py`: `build_agent` accepts either a `dict[str, DataFrame]`
         (new) or a single `DataFrame` (deprecated, silently wrapped as
         `{"df": df}`) — Step 10's `build_agent(module_df)` call needs zero
@@ -381,7 +270,19 @@ deprioritized until we hit a real one (see Next up, bottom item).
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-7. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
+7. *(lowest priority, not urgent — revisit next time a similarly
+   heavy/resource-intensive question comes up)* `request_timeout=180` on
+   the model only bounds a single HTTP request, not the whole
+   `agent.invoke()` call — a ReAct loop makes 2+ sequential model calls
+   (decide tool call, then synthesize the final answer), so the *total*
+   user-visible wait isn't actually capped at 180s. Measured 2026-08-04: a
+   hard 3-table transitive-join question took **286.9s** end to end (vs.
+   57-70s for similarly-shaped questions) without tripping the timeout,
+   since no single one of its underlying calls individually exceeded 180s.
+   Would need an overall deadline wrapped around the whole `invoke()` call,
+   not just the client's per-request timeout — not done now, just recorded
+   so we know to revisit it if/when a heavy task like this resurfaces.
+8. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top
