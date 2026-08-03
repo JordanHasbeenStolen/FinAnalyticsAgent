@@ -1,9 +1,10 @@
 """Tools the agent can call: execute_python_code and create_chart.
 
 Both follow the same shape: the LLM writes a code string, the tool runs it
-against the currently active DataFrame (via `active_table.get_df()`) with
-`exec()`, and returns text — either what was printed (execute_python_code)
-or the path to a saved PNG (create_chart). Never the raw DataFrame itself.
+against the currently active table(s) (via `active_table.get_tables()`)
+with `exec()`, and returns text — either what was printed
+(execute_python_code) or the path to a saved PNG (create_chart). Never the
+raw DataFrame(s) themselves.
 """
 
 import contextlib
@@ -54,21 +55,27 @@ CHART_STYLE = {
 
 @tool
 def execute_python_code(code: str) -> str:
-    """Run pandas code against the loaded financial DataFrame `df` and return its printed output.
+    """Run pandas code against the loaded table(s) and return its printed output.
 
-    The DataFrame `df` and the `pd` (pandas) module are already available —
-    do not try to import pandas or load/recreate `df` yourself.
+    A dict `dfs` mapping table names to DataFrames (and the `pd` module)
+    are already available — access a table as dfs['table_name']. Some
+    questions only need one table. Others need you to combine (e.g.
+    dfs['a'].merge(dfs['b'], on=[...])) two or more tables — merge on ALL
+    of the columns they have in common, not just one, to avoid
+    accidentally duplicating rows. Tables that don't share a column
+    directly may still be connected through a third table that shares a
+    column with both.
 
     Your code MUST call print(...) on whatever value answers the question.
     Anything not printed is lost — this tool only returns what was printed.
 
     Print only what you need to answer the question (a single value, a small
-    aggregate, a short table) — do not print the entire DataFrame. Output is
-    truncated past a length limit, since `df` may be much larger in real use.
+    aggregate, a short table) — do not print an entire table. Output is
+    truncated past a length limit, since tables may be much larger in real use.
 
     Args:
         code: a snippet of Python/pandas code, e.g.
-            "print(df.groupby('Realm')['Net_Income'].sum().idxmax())"
+            "print(dfs['caravan_accounts'].groupby('Realm')['Net_Income'].sum().idxmax())"
 
     Returns:
         Everything the code printed to stdout, as a single string (truncated
@@ -76,8 +83,8 @@ def execute_python_code(code: str) -> str:
         code raised an exception instead, returns an "Error: ..." message
         describing what went wrong, so you can fix the code and try again.
     """
-    df = active_table.get_df()
-    namespace = {"df": df, "pd": pd}
+    dfs = active_table.get_tables()
+    namespace = {"dfs": dfs, "pd": pd}
     stdout_buffer = io.StringIO()
     try:
         with contextlib.redirect_stdout(stdout_buffer):
@@ -103,26 +110,28 @@ def execute_python_code(code: str) -> str:
 
 @tool
 def create_chart(code: str) -> str:
-    """Run matplotlib plotting code against the loaded DataFrame `df` and save it as a PNG.
+    """Run matplotlib plotting code against the loaded table(s) and save it as a PNG.
 
-    The DataFrame `df`, `pd` (pandas), and `plt` (matplotlib.pyplot) are
-    already available — do not import them yourself. Your code must
-    actually draw something (e.g. plt.bar(...), plt.plot(...), plt.pie(...))
-    using data computed from `df`. Do not call plt.show() or plt.savefig()
-    yourself — the tool handles saving.
+    A dict `dfs` mapping table names to DataFrames, `pd` (pandas), and
+    `plt` (matplotlib.pyplot) are already available — access a table as
+    dfs['table_name']; combine tables the same way as in
+    execute_python_code if the chart needs data from more than one. Your
+    code must actually draw something (e.g. plt.bar(...), plt.plot(...),
+    plt.pie(...)) using data computed from `dfs`. Do not call plt.show() or
+    plt.savefig() yourself — the tool handles saving.
 
     Args:
         code: a snippet of Python/pandas/matplotlib code that draws a chart,
-            e.g. "df.groupby('Realm')['Net_Income'].sum().plot(kind='bar')"
+            e.g. "dfs['caravan_accounts'].groupby('Realm')['Net_Income'].sum().plot(kind='bar')"
 
     Returns:
         The file path of the saved PNG (under outputs/), as a string. If the
         code raised an exception, or ran without drawing anything, returns
         an "Error: ..." message describing what went wrong.
     """
-    df = active_table.get_df()
+    dfs = active_table.get_tables()
     plt.close("all")  # start from a clean figure each time
-    namespace = {"df": df, "pd": pd, "plt": plt}
+    namespace = {"dfs": dfs, "pd": pd, "plt": plt}
     with plt.rc_context(CHART_STYLE):
         try:
             exec(code, namespace)

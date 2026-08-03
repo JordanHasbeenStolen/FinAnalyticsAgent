@@ -1,27 +1,35 @@
-"""Builds the system prompt: schema table + row preview + tool instructions.
+"""Builds the system prompt: schema table(s) + row preview(s) + tool instructions.
 
-The LLM never sees the full DataFrame — only the schema (column names +
-dtypes) and a small preview, both rendered here as text.
+The LLM never sees the full table(s) — only the schema (column names +
+dtypes) and a small preview, both rendered here as text, per table.
 """
 
 import pandas as pd
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are a financial analytics assistant talking to an end user in a chat UI.
-Behind the scenes you answer questions about a single pandas DataFrame
-called `df`, using the `execute_python_code` and `create_chart` tools.
+Behind the scenes you answer questions using one or more pandas DataFrames,
+available in a dict called `dfs` — access a table as `dfs['table_name']`,
+using the `execute_python_code` and `create_chart` tools.
 
 **Never mention implementation details to the user** — no "DataFrame", no
-"df", no "pandas", no tool names, no code, no "I don't have the full table
+"dfs", no "pandas", no tool names, no code, no "I don't have the full table
 in front of me". The user only cares about the data itself (the ledger,
 the numbers), not how you compute it. Talk about "the data" or "the
 records", never the machinery underneath.
 
-You do not have the full table in front of you. You have only the schema
-and a small preview below. To answer any question that needs real numbers,
-call `execute_python_code` with pandas code that operates on `df` and
-returns the result. Never guess numeric values — always compute them via
-the tool.
+You do not have the full table(s) in front of you. You have only the
+schema and a small preview below, for each table. To answer any question
+that needs real numbers, call `execute_python_code` with pandas code that
+operates on `dfs` and returns the result. Never guess numeric values —
+always compute them via the tool.
+
+Some questions only need one table. Others need you to combine (e.g.
+`pd.merge`) two or more tables — check the schemas below for columns the
+tables share, and merge on ALL of the columns they have in common (not
+just one), to avoid accidentally duplicating rows when multiple rows share
+a single column's value. Tables that don't share a column directly may
+still be connected through a third table that shares a column with both.
 
 If the user asks for a chart, plot, or visualization, call `create_chart`
 instead — do not try to describe a chart in text.
@@ -35,13 +43,7 @@ describe what the chart shows (e.g. "Here's EBITDA by realm:").
 the highest net income is **Garden of the Midnight Rose**.") so it stands
 out visually in the chat.
 
-## Schema
-
-{schema_table}
-
-## Preview (first {n_preview_rows} rows)
-
-{preview_kv}
+{tables_section}
 
 ## How to answer
 
@@ -90,18 +92,22 @@ def build_preview_kv(df: pd.DataFrame, n_rows: int = 5) -> str:
     return "\n---\n".join(blocks)
 
 
-def build_system_prompt(df: pd.DataFrame, n_preview_rows: int = 5) -> str:
+def build_system_prompt(tables: dict[str, pd.DataFrame], n_preview_rows: int = 5) -> str:
     """Build the full system prompt for the analytics agent.
 
     Args:
-        df: the DataFrame the agent will answer questions about.
-        n_preview_rows: how many rows to include in the preview section.
+        tables: mapping of table name to DataFrame the agent will answer
+            questions about.
+        n_preview_rows: how many rows to include in each table's preview.
 
     Returns:
         The rendered system prompt string.
     """
-    return SYSTEM_PROMPT_TEMPLATE.format(
-        schema_table=build_schema_table(df),
-        n_preview_rows=n_preview_rows,
-        preview_kv=build_preview_kv(df, n_preview_rows),
-    )
+    sections = []
+    for name, df in tables.items():
+        sections.append(
+            f"## Table `{name}` (access as dfs['{name}'])\n\n"
+            f"### Schema\n\n{build_schema_table(df)}\n\n"
+            f"### Preview (first {n_preview_rows} rows)\n\n{build_preview_kv(df, n_preview_rows)}"
+        )
+    return SYSTEM_PROMPT_TEMPLATE.format(tables_section="\n\n".join(sections))
