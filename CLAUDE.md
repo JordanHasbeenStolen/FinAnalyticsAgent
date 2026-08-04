@@ -37,8 +37,8 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 `create_react_agent` from `langgraph.prebuilt` is now deprecated in favor of this).
 
 ### Tools
-- `execute_python_code(code: str)` — runs LLM-generated pandas code against a pre-loaded DataFrame, returns the result. Truncates output past `MAX_TOOL_OUTPUT_CHARS` with a clear message instead of flooding the LLM context.
-- `create_chart(code: str)` — matplotlib chart generation, saves PNG to `outputs/` (git-ignored, same rationale as `data/`), returns file path
+- `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (a `dfs` dict, accessed as `dfs['table_name']`), returns the result. Truncates output past `MAX_TOOL_OUTPUT_CHARS` with a clear message instead of flooding the LLM context.
+- `create_chart(code: str)` — matplotlib chart generation against `dfs`, saves PNG to `outputs/` (git-ignored, same rationale as `data/`), returns file path
 - `load_table(path)` — loads a `.csv`/`.xlsx` by extension; this is the built version of what the roadmap used to call `read_new_table(path)`. Combined with `ipywidgets.FileUpload` in the notebook for a real click-to-upload flow.
 
 ### State
@@ -126,16 +126,20 @@ terracotta palette most AI-generated designs default to):
 `.py` modules live alongside the notebook (**the notebook is not being
 deleted or replaced** — it stays as the running R&D log; the modules are a
 reusable layer that Streamlit and tests import from):
-- `active_table.py` — holds the current DataFrame (get/set pair). Not a
-  LangGraph `TypedDict` state — we don't use raw `StateGraph`, `create_agent`
-  manages its own internal state; this just lets `tools.py`/`prompts.py`
-  both read whichever table is currently loaded.
+- `active_table.py` — holds the currently active tables as a
+  `dict[str, pd.DataFrame]` (`set_tables`/`get_tables`). Not a LangGraph
+  `TypedDict` state — we don't use raw `StateGraph`, `create_agent` manages
+  its own internal state; this just lets `tools.py`/`prompts.py` both read
+  whichever tables are currently loaded. The old single-table `set_df`/
+  `get_df` are kept as `@warnings.deprecated` shims (PEP 702), only so
+  `r&d.ipynb`'s Step 10 keeps working unmodified.
 - `tools.py` — `execute_python_code`, `create_chart`
 - `prompts.py` — `build_schema_table`, `build_preview_kv`,
   `SYSTEM_PROMPT_TEMPLATE`, `build_system_prompt`
-- `graph.py` — the `model` and `build_agent(df)`, which takes `df` as an
-  argument (not a zero-arg factory) since the active table changes at
-  runtime (file upload)
+- `graph.py` — the `model` and `build_agent(tables)`, which takes a
+  `dict[str, pd.DataFrame]` (a single DataFrame is also accepted,
+  deprecated, wrapped internally as `{"df": tables}`) since the active
+  tables change at runtime (file upload)
 
 ### Notebooks
 - Names: `NN_description.ipynb` (leading number for order).
