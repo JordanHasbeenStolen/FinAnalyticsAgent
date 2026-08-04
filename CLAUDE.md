@@ -25,6 +25,7 @@ Context file for Claude Code. Read this file at the start of every session in th
 - **Orchestration:** LangGraph 1.2.x
 - **LangChain:** 1.3.x (v1.0 released April 2026 with breaking changes — do not rely on pre-1.0 patterns)
 - **Data:** pandas, matplotlib, openpyxl, ipywidgets (for the notebook's file-upload widget)
+- **Documents (RAG prototype):** `pymupdf` (pdf), `python-docx` (docx), `langchain-text-splitters` (direct dependency — was only pulled in transitively via the now-removed `langchain-community`)
 - **UI:** Streamlit (`app.py`)
 
 Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via `uv add <package>`.
@@ -40,6 +41,7 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (a `dfs` dict, accessed as `dfs['table_name']`), returns the result. Truncates output past `MAX_TOOL_OUTPUT_CHARS` with a clear message instead of flooding the LLM context.
 - `create_chart(code: str)` — matplotlib chart generation against `dfs`, saves PNG to `outputs/` (git-ignored, same rationale as `data/`), returns file path
 - `load_table(path)` — loads a `.csv`/`.xlsx` by extension; this is the built version of what the roadmap used to call `read_new_table(path)`. Combined with `ipywidgets.FileUpload` in the notebook for a real click-to-upload flow.
+- `search_documents(query: str)` — naive keyword search over PDF/DOCX chunks (RAG Stage 1). Prototype only, in `r&d.ipynb` (Step 13) — not yet in `finanalyticsagent/`/`app.py`.
 
 ### State
 `TypedDict` with `messages: Annotated[list[AnyMessage], operator.add]`.

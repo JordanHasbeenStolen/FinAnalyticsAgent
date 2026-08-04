@@ -4,7 +4,7 @@ A personal on-prem AI oracle for spreadsheets: summon a djinn from your local LL
 
 ## Overview
  
-An agentic replacement for the OpenAI Assistants-style tabular analytics workflow, rebuilt on **LangGraph** with a **locally hosted LLM** (Qwen3-8B on Apple Silicon via `mlx_lm.server`). The agent accepts natural-language questions over spreadsheet data, decides which tools to call, and returns answers, insights, or charts — all without sending data to third-party APIs.
+An agentic replacement for the OpenAI Assistants-style tabular analytics workflow, rebuilt on **LangGraph** with a **locally hosted LLM** (Qwen3-8B on Apple Silicon via `mlx_lm.server`). The agent accepts natural-language questions over spreadsheet data — and, as of an in-progress RAG prototype, PDF/DOCX documents — decides which tools to call, and returns answers, insights, or charts, all without sending data to third-party APIs.
 
 ![Streamlit chat screenshot](docs/screenshot.png)
 
@@ -13,13 +13,14 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents` — not a hand-rolled `StateGraph`
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** one or more named pandas DataFrames (`dfs['table_name']`), loaded from CSV/XLSX — the agent can combine several if a question needs it
-- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict
+- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict. `search_documents` (naive keyword search over PDF/DOCX) exists as an `r&d.ipynb` prototype, not yet in `finanalyticsagent/`/`app.py`
 - **UI:** Streamlit chat (`app.py`) — desert-night/lamplight theme via `config.toml`, tool-usage transparency toggle (on by default), chart downloads
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (`dfs['name']`), returns the result
 - `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded table(s), saves the figure to `outputs/*.png`, returns the file path
+- `search_documents(query: str)` — naive keyword search over loaded PDF/DOCX documents; prototype only (`r&d.ipynb` Step 13), not yet in the shipped package/app
 
 ## How to Run
 
@@ -67,12 +68,13 @@ local server).
 ## Stack
  
 - Python 3.13, `uv` for env management
-- `langgraph`, `langchain`, `langchain-openai`, `pandas`, `matplotlib`, `ipywidgets`, `streamlit`
+- `langgraph`, `langchain`, `langchain-openai`, `langchain-text-splitters`, `pandas`, `matplotlib`, `openpyxl`, `ipywidgets`, `streamlit`, `python-docx`, `pymupdf`
 - Development in WSL2 / VS Code / Jupyter
 - On-prem inference: `mlx_lm.server` on Apple Silicon
 
 ## Status
  
 🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end,
-backed by a `pytest` test suite, with multi-file support; next up is a RAG
-module for PDFs.
+backed by a `pytest` test suite, with multi-file support. RAG Stage 1
+(naive document search, notebook-only) is done; next up is real
+embeddings/Chroma and wiring it into the package/app.
