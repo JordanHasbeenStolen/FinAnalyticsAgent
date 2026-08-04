@@ -10,7 +10,7 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 
 ## Architecture
  
-- **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents` — not a hand-rolled `StateGraph`
+- **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents`
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** one or more named pandas DataFrames (`dfs['table_name']`), loaded from CSV/XLSX — the agent can combine several if a question needs it
 - **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict. `search_documents` (naive keyword search over PDF/DOCX) exists as an `r&d.ipynb` prototype, not yet in `finanalyticsagent/`/`app.py`
