@@ -290,6 +290,15 @@ reduce adherence").
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top
+9. *(lowest priority, exploratory)* Scaling multi-file support to many
+   tables (10-30+) — current design dumps every loaded table's full
+   schema+preview into the system prompt on every question, which doesn't
+   scale: bigger prompt, slower responses, and untested (likely worse)
+   table-selection accuracy among many tables. Only tested up to 3. If
+   this is ever needed, the fix is lazy disclosure — list table names +
+   one-line descriptions upfront, add a `describe_table(name)` tool the
+   model calls on demand — not just raising a number. Not pursued now;
+   current roadmap scope is a handful of files (2-5)
 
 ---
 
