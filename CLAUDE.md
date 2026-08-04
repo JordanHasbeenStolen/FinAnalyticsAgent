@@ -197,22 +197,15 @@ reduce adherence").
    — the current wording only forbids prose mentions of the file path/
    "download this file", not markup that embeds it.
 2. RAG module (Chroma) for non-tabular files (PDF/DOC) — phased plan:
-   - [ ] Stage 1 (in progress, 2026-08-04): minimal prototype in `r&d.ipynb`
-     — one more tool (`search_documents`) on the existing single agent,
-     naive keyword search over PDF/.docx chunks, no embedding model yet,
-     no Chroma yet
-   - [ ] Stage 2 (target 2026-08-05/07): real local RAG on Chroma with real
-     embeddings (model choice is an open research question — Mac/MLX
-     ecosystem preferred over Ollama, not decided yet), extracted into
-     `finanalyticsagent/` + wired into `app.py` (same 4-phase process used
-     for multi-file support); graceful degradation if the embedding
-     endpoint/Chroma is unavailable — tell the user explicitly instead of
-     failing silently
-   - [ ] Stage 3 (ongoing, no fixed scope): multi-agent (router + separate
-     document agent — deferred because the small local model can't absorb
-     a guaranteed extra LLM call per turn just for routing), Docling as a
-     loader upgrade over `PyPDFLoader`/`Docx2txtLoader`, Chroma vs Qdrant +
-     persistence/git policy, scaling complexity by model backend
+   - [x] Stage 1 (2026-08-04): `search_documents` tool added to the existing
+     agent in `r&d.ipynb` (Step 13). Naive keyword search, no embeddings,
+     no Chroma. Loaders: `pymupdf` (pdf), `python-docx` (docx) — not
+     `langchain_community`
+   - [ ] Stage 2: real Chroma + embeddings, extracted into
+     `finanalyticsagent/` + wired into `app.py`. Embedding model + Chroma
+     persistence not decided yet
+   - [ ] Stage 3 (ongoing): multi-agent (router + separate document agent),
+     Docling for `.docx` only, Chroma vs Qdrant, scaling by model backend
    - **Reminder: update `docs/screenshot.png`** when RAG lands — it's
      already stale (shows the old single-file radio-button sidebar, not
      the current multi-file multiselect), but the change is cosmetically
@@ -264,6 +257,7 @@ reduce adherence").
 ## Rules for Claude Code
 
 - **Verify current library APIs.** LangChain and LangGraph both hit v1.0 in April 2026 with breaking changes. Don't rely on 2024 documentation patterns.
+- **Before introducing any new module, library, testing framework, or architectural pattern — verify against current official sources that it's genuinely still the industry standard**, not just that it works or matches confident recall. This is a common failure mode: presenting an outdated-but-plausible choice as current fact. Already happened in this project: `import fitz` presented as current PyMuPDF usage when the installed version's primary name is now `pymupdf`; an initial multi-agent architecture proposal leaned on outdated patterns before dedicated research corrected it. Applies to the high-level choice (is this library/pattern still what's used) as much as the low-level API call.
 - **The model is Qwen3-8B, not GPT-4.** Prompts must be explicit; tool docstrings thorough; small models need more guidance.
 - **Ask before destructive actions:** rewriting git history, `git push --force`, deleting files, restructuring project layout.
 - **Announce non-trivial actions before doing them.** Especially git operations, file moves, dependency installs.
