@@ -29,3 +29,16 @@ def test_create_chart_errors_when_nothing_is_drawn():
     result = create_chart.func("y = 1")
 
     assert result == "Error: no chart was drawn. Call a plotting function like plt.bar(...) or plt.plot(...)."
+
+
+def test_execute_python_code_can_combine_multiple_tables():
+    active_table.set_tables(
+        {
+            "a": pd.DataFrame({"key": [1, 2], "val_a": [10, 20]}),
+            "b": pd.DataFrame({"key": [1, 2], "val_b": [100, 200]}),
+        }
+    )
+
+    result = execute_python_code.func("print(dfs['a'].merge(dfs['b'], on='key')['val_b'].sum())")
+
+    assert result.strip() == "300"

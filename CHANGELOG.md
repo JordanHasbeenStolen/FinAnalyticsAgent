@@ -127,3 +127,28 @@ deprioritized until we hit a real one (see CLAUDE.md's roadmap).
     persistence across app restarts/machine reboots. If that's ever needed,
     it's a different, bigger piece of work (e.g. writing history to disk or
     a database keyed by session), not attempted here.
+
+## Done (2026-08-04)
+- Multi-file support: the agent now answers using several named tables at
+  once (`dfs['name']`), matching how the legacy Assistants API's Code
+  Interpreter worked (files attached together all sit in one sandbox).
+  Prototyped in `r&d.ipynb` (Step 12) against the real LLM first, then
+  extracted into `finanalyticsagent/` — `active_table.py`'s
+  `set_tables`/`get_tables`, `tools.py`, `prompts.py`, `graph.py` — with
+  the old single-table API kept as `@warnings.deprecated` shims (PEP 702)
+  so `r&d.ipynb`'s Step 10 needs zero changes. `app.py`'s sidebar now
+  supports a multiselect over demo datasets plus multi-file upload.
+  - Added `bazaar_books/realm_metadata.csv` as a real, tracked synthetic
+    file (not built in-memory) for the prototype's transitive-join test.
+  - Validated live: correct table selection among 3 loaded tables, and
+    correct recognition/execution of a transitive bridge join (two tables
+    sharing no column, connected through a third).
+  - **Known, accepted limitation:** direct two-table joins are reliable
+    (4/4 runs, always merging on every shared column), but the bridging
+    merge in a transitive/3-table join consistently used only one shared
+    column (4/4 runs), inflating row counts — harmless for the `mean()`-
+    based questions tested so far, not for `sum()`/`count()`-based ones. A
+    plain prompt instruction to merge on all shared columns didn't fix
+    this across three attempts. Accepted as a known risk, not pursued
+    further, per the project's practice of not solving a hypothetical
+    problem ahead of a real one.

@@ -192,66 +192,7 @@ reduce adherence").
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
    — the current wording only forbids prose mentions of the file path/
    "download this file", not markup that embeds it.
-2. Multi-file support — give the agent simultaneous access to several named
-   tables at once (`dfs['name']`), matching how the legacy OpenAI Assistants
-   API's Code Interpreter actually worked (attached files all sit in one
-   sandbox together — documented limit is 20 files, not the ~10 half-
-   remembered; verified against official docs, not memory). Architecture
-   decided 2026-08-03, not built yet — phases, in order:
-   1. **Prototype in `r&d.ipynb` first, new steps only, nothing existing
-      touched** — same process this project has always used for every
-      prior feature (schema/prompt, `execute_python_code`, `create_chart`):
-      prove it live against the real LLM before extracting into modules.
-      Build a `dfs = {"name": df, ...}` dict by hand, a multi-table system
-      prompt, a tool whose exec namespace exposes `dfs`; test a question
-      needing one table and, if possible, one needing both combined.
-   2. **Only once proven working in the notebook**, extract into
-      `finanalyticsagent/`:
-      - `active_table.py`: new `set_tables(tables: dict[str, pd.DataFrame])`
-        / `get_tables()`. Old `set_df`/`get_df` become
-        `@warnings.deprecated` shims (PEP 702, native in our Python 3.13 —
-        not a hand-rolled deprecation) that wrap the new functions — kept
-        only so `r&d.ipynb`'s Step 10 keeps working completely unmodified,
-        not because the old single-table API is still a good default.
-      - `tools.py`: `execute_python_code`/`create_chart` read
-        `get_tables()`, expose `dfs` (not `df`) in the exec namespace;
-        docstrings updated accordingly.
-      - `prompts.py`: `build_system_prompt` renders one schema+preview
-        block per table, each named as `dfs['name']`. **Known, narrower-
-        than-first-thought risk, not yet fixed:** direct two-table joins
-        are reliable — verified 4/4 across separate runs, always merging
-        on all shared columns (`Guild_Name`+`Year`+`Quarter`), never just
-        one. But **transitive/bridge joins across three tables** (A↔B↔C,
-        A and C sharing no column directly) are looser 4/4 times tested —
-        the model correctly recognizes the bridge-table pattern and reaches
-        a right answer, but the *first* merge in the chain used only
-        `Guild_Name`, inflating 96 correct rows to 768. A plain prompt
-        instruction ("merge on all shared columns") did **not** fix this
-        across three follow-up attempts (including the user's own live run
-        in `r&d.ipynb`) — the risk is specific to multi-hop
-        joins, not joins in general, and needs a stronger fix (e.g. a
-        concrete worked multi-hop example in the tool docstring, not an
-        abstract rule) if/when it's worth pursuing further. So far every
-        test happened to use `mean()`, which is immune to the row
-        duplication; `sum()`/`count()`-based questions would not be.
-      - `graph.py`: `build_agent` accepts either a `dict[str, DataFrame]`
-        (new) or a single `DataFrame` (deprecated, silently wrapped as
-        `{"df": df}`) — Step 10's `build_agent(module_df)` call needs zero
-        changes.
-   3. Update/add tests for the new multi-table behavior. Existing tests
-      shouldn't need changes — none of them hardcode a variable name inside
-      exec'd code strings, so the deprecated shims keep them green as-is.
-   4. **Last**, update `app.py`: sidebar `st.multiselect` over demo files +
-      `st.file_uploader(accept_multiple_files=True)`, merged into one
-      `tables` dict; rebuild the agent when the *set* of loaded tables
-      changes, not a single string key.
-
-   Rejected approach: physically moving old code to an "archive" — checked
-   against real industry practice (PEP 702, PEP 387, adapter/shim pattern
-   sources) before deciding; the standard advice is the opposite — keep
-   deprecated functions in place as thin wrappers over the new
-   implementation, don't fork the logic into a second, untested location.
-3. RAG module (Chroma) for non-tabular files (PDF/DOC)
+2. RAG module (Chroma) for non-tabular files (PDF/DOC)
    - File-type router: tabular → pandas tools, PDF/DOC → RAG
    - Router decides by file content and/or extension
    - Graceful degradation: if the RAG module/embedding endpoint is
@@ -259,22 +200,27 @@ reduce adherence").
      matters for demos to colleagues
    - Embedding model currently only runs locally via Ollama; need a plan
      for running embedding models within the existing Mac/MLX setup instead
-4. *(lowest priority, exploratory)* True persistence across app restarts —
+   - **Reminder: update `docs/screenshot.png`** when RAG lands — it's
+     already stale (shows the old single-file radio-button sidebar, not
+     the current multi-file multiselect), but the change is cosmetically
+     minor, so bundling it with the next visible UI change (RAG) rather
+     than doing a screenshot-only update now
+3. *(lowest priority, exploratory)* True persistence across app restarts —
    in-session memory is done (see above); this would need writing history
    to disk/a database, only worth it if the in-session-only version proves
    insufficient in practice
-5. Model backend switcher — local LLM stays primary, but add the ability to
+4. Model backend switcher — local LLM stays primary, but add the ability to
    swap in Azure OpenAI / OpenAI endpoints (or other local models like
    DeepSeek) without rewriting the agent code. Note: `app.py`'s caption
    "nothing leaves this network" is only true for the on-prem stack — once
    remote endpoints are switchable, that text needs to become conditional
    on which backend is active, not a hardcoded claim
-6. *(lowest priority, exploratory)* Dedicated functions/tools for common
+5. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-7. *(lowest priority, not urgent — revisit next time a similarly
+6. *(lowest priority, not urgent — revisit next time a similarly
    heavy/resource-intensive question comes up)* `request_timeout=180` on
    the model only bounds a single HTTP request, not the whole
    `agent.invoke()` call — a ReAct loop makes 2+ sequential model calls
@@ -286,11 +232,11 @@ reduce adherence").
    Would need an overall deadline wrapped around the whole `invoke()` call,
    not just the client's per-request timeout — not done now, just recorded
    so we know to revisit it if/when a heavy task like this resurfaces.
-8. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
+7. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top
-9. *(lowest priority, exploratory)* Scaling multi-file support to many
+8. *(lowest priority, exploratory)* Scaling multi-file support to many
    tables (10-30+) — current design dumps every loaded table's full
    schema+preview into the system prompt on every question, which doesn't
    scale: bigger prompt, slower responses, and untested (likely worse)

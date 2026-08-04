@@ -15,6 +15,7 @@ from finanalyticsagent.graph import MODEL_NAME, answer_was_truncated, build_agen
 DEMO_FILES = {
     "Demo ledger (financial)": "bazaar_books/caravan_accounts.csv",
     "Demo ledger (KPIs)": "bazaar_books/guild_ledger.csv",
+    "Demo ledger (regions)": "bazaar_books/realm_metadata.csv",
 }
 
 st.set_page_config(page_title="The Djinn Financier", page_icon="🧞")
@@ -34,24 +35,50 @@ def load_uploaded_file(uploaded_file) -> pd.DataFrame:
     return pd.read_excel(uploaded_file)
 
 
+def unique_table_name(name: str, existing: dict) -> str:
+    """Avoid clobbering a table if two selected files share the same name.
+
+    Args:
+        name: the proposed table name (a file's stem).
+        existing: the tables dict built so far.
+
+    Returns:
+        `name` if it's free, otherwise `name` with a numeric suffix.
+    """
+    if name not in existing:
+        return name
+    suffix = 2
+    while f"{name}_{suffix}" in existing:
+        suffix += 1
+    return f"{name}_{suffix}"
+
+
 with st.sidebar:
     st.markdown("### Data source")
-    choice = st.radio(
-        "Data source",
-        list(DEMO_FILES) + ["Upload your own file"],
-        label_visibility="collapsed",
+    selected_demos = st.multiselect(
+        "Demo datasets",
+        list(DEMO_FILES),
+        default=[next(iter(DEMO_FILES))],
+    )
+    uploaded_files = st.file_uploader(
+        "Upload your own .csv/.xlsx (you can pick more than one)",
+        type=["csv", "xlsx"],
+        accept_multiple_files=True,
     )
 
-    if choice == "Upload your own file":
-        uploaded_file = st.file_uploader("Upload a .csv or .xlsx", type=["csv", "xlsx"])
-        if uploaded_file is None:
-            st.info("Upload a file to begin.")
-            st.stop()
-        active_df = load_uploaded_file(uploaded_file)
-        source_key = uploaded_file.name
-    else:
-        active_df = pd.read_csv(DEMO_FILES[choice])
-        source_key = choice
+    tables: dict[str, pd.DataFrame] = {}
+    for label in selected_demos:
+        path = DEMO_FILES[label]
+        tables[Path(path).stem] = pd.read_csv(path)
+    for uploaded_file in uploaded_files:
+        name = unique_table_name(Path(uploaded_file.name).stem, tables)
+        tables[name] = load_uploaded_file(uploaded_file)
+
+    if not tables:
+        st.info("Select a demo dataset or upload a file to begin.")
+        st.stop()
+
+    source_key = (tuple(sorted(selected_demos)), tuple(f.name for f in uploaded_files))
 
     show_debug = st.checkbox("Show which tool was used", value=True)
 
@@ -69,10 +96,11 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# Rebuild the agent only when the data source actually changes — not on
-# every rerun, since Streamlit reruns this whole script on every interaction.
+# Rebuild the agent only when the *set* of loaded tables actually changes —
+# not on every rerun, since Streamlit reruns this whole script on every
+# interaction.
 if st.session_state.get("source_key") != source_key:
-    st.session_state.agent = build_agent(active_df)
+    st.session_state.agent = build_agent(tables)
     st.session_state.source_key = source_key
     st.session_state.messages = []
 

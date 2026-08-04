@@ -12,14 +12,14 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
  
 - **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents` — not a hand-rolled `StateGraph`
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
-- **Data layer:** pandas DataFrame loaded from CSV/XLSX
-- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts
+- **Data layer:** one or more named pandas DataFrames (`dfs['table_name']`), loaded from CSV/XLSX — the agent can combine several if a question needs it
+- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict
 - **UI:** Streamlit chat (`app.py`) — desert-night/lamplight theme via `config.toml`, tool-usage transparency toggle (on by default), chart downloads
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
-- `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded DataFrame, returns the result
-- `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded DataFrame, saves the figure to `outputs/*.png`, returns the file path
+- `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (`dfs['name']`), returns the result
+- `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded table(s), saves the figure to `outputs/*.png`, returns the file path
 
 ## How to Run
 
@@ -44,11 +44,11 @@ local server).
 - [x] Extract code into `.py` modules alongside the notebook — `finanalyticsagent/active_table.py` (current DataFrame), `tools.py`, `prompts.py`, `graph.py` (model+agent construction), `testing.py`. The notebook itself was not touched; it stays as the running R&D log, with a Step 10 proving the modules work standalone
 - [x] Streamlit UI (`app.py`) — desert-night/lamplight theme via `config.toml` (no custom CSS), djinn/scroll chat personas, tool-usage transparency (on by default, literal tool names — no roleplay in how the assistant reports its own actions), chart download button, system prompt hardened to never leak implementation details (df/pandas/file paths) to the end user
 - [x] `pytest` test suite in `tests/` — pure/deterministic unit tests on `finanalyticsagent/` (schema/preview formatting, `load_table`, the output-truncation guard, the no-chart-drawn error, `active_table`'s `RuntimeError`) plus coarse LLM-in-the-loop regression checks tied to real incidents (small-talk leaks, raw file-path leaks, bold key values, chart transparency); both layers also wired into `r&d.ipynb` as Step 11
-- [ ] Multi-file support — agent sees several named tables at once (`dfs['name']`), matching how the legacy Assistants API's Code Interpreter worked (see CLAUDE.md for the full phased plan)
+- [x] Multi-file support — agent sees several named tables at once (`dfs['name']`), matching how the legacy Assistants API's Code Interpreter worked (see CLAUDE.md for the full phased plan)
   - [x] Prototype in `r&d.ipynb` (new steps only) against the real LLM first
   - [x] Extract into `finanalyticsagent/` (`active_table.py`, `tools.py`, `prompts.py`, `graph.py`), old single-table functions kept as deprecated shims so Step 10 needs no changes
-  - [ ] Update/add tests
-  - [ ] Update `app.py` (multi-select demo files + multi-file upload)
+  - [x] Update/add tests
+  - [x] Update `app.py` (multi-select demo files + multi-file upload)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
   - [ ] File-type router: tabular files → pandas tools, PDF/DOC → RAG
   - [ ] Router decides by file content and/or extension
@@ -75,5 +75,5 @@ local server).
 ## Status
  
 🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end,
-backed by a `pytest` test suite; next up is multi-file support and a RAG
+backed by a `pytest` test suite, with multi-file support; next up is a RAG
 module for PDFs.
