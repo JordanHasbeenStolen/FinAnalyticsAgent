@@ -50,10 +50,9 @@ local server).
   - [x] Update/add tests
   - [x] Update `app.py` (multi-select demo files + multi-file upload)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
-  - [ ] File-type router: tabular files → pandas tools, PDF/DOC → RAG
-  - [ ] Router decides by file content and/or extension
-  - [ ] Graceful degradation: if the RAG module/embedding endpoint is unavailable, tell the user explicitly ("you uploaded a PDF, RAG is needed, but the module is unavailable") instead of failing silently — important for demos
-  - [ ] Embedding model currently only runs locally via Ollama; plan needed for running embedding models within the existing Mac/MLX setup instead
+  - [ ] Stage 1: minimal prototype — one more tool on the existing single agent, naive keyword search over document chunks, no embedding model yet
+  - [ ] Stage 2: real Chroma + real embeddings, extracted into the package and wired into the Streamlit app, with graceful degradation if the embedding endpoint is unavailable
+  - [ ] Stage 3 (ongoing): multi-agent (router + separate document agent), better embedding-model/persistence choices, Docling as a loader upgrade
 - [x] Conversation memory, in-session — sliding window (sidebar slider, default 3 previous messages), paired with a `request_timeout` on the model so a slow/struggling backend surfaces a UI error instead of hanging forever
 - [ ] Conversation memory across sessions (persisted across app restarts) — not done; the in-session version above is a different, smaller thing. Lowest priority, only worth it if the in-session version proves insufficient
 - [ ] Model backend switcher — local LLM stays the primary target, but add the

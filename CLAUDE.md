@@ -196,14 +196,23 @@ reduce adherence").
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
    — the current wording only forbids prose mentions of the file path/
    "download this file", not markup that embeds it.
-2. RAG module (Chroma) for non-tabular files (PDF/DOC)
-   - File-type router: tabular → pandas tools, PDF/DOC → RAG
-   - Router decides by file content and/or extension
-   - Graceful degradation: if the RAG module/embedding endpoint is
-     unavailable, tell the user explicitly instead of failing silently —
-     matters for demos to colleagues
-   - Embedding model currently only runs locally via Ollama; need a plan
-     for running embedding models within the existing Mac/MLX setup instead
+2. RAG module (Chroma) for non-tabular files (PDF/DOC) — phased plan:
+   - [ ] Stage 1 (in progress, 2026-08-04): minimal prototype in `r&d.ipynb`
+     — one more tool (`search_documents`) on the existing single agent,
+     naive keyword search over PDF/.docx chunks, no embedding model yet,
+     no Chroma yet
+   - [ ] Stage 2 (target 2026-08-05/07): real local RAG on Chroma with real
+     embeddings (model choice is an open research question — Mac/MLX
+     ecosystem preferred over Ollama, not decided yet), extracted into
+     `finanalyticsagent/` + wired into `app.py` (same 4-phase process used
+     for multi-file support); graceful degradation if the embedding
+     endpoint/Chroma is unavailable — tell the user explicitly instead of
+     failing silently
+   - [ ] Stage 3 (ongoing, no fixed scope): multi-agent (router + separate
+     document agent — deferred because the small local model can't absorb
+     a guaranteed extra LLM call per turn just for routing), Docling as a
+     loader upgrade over `PyPDFLoader`/`Docx2txtLoader`, Chroma vs Qdrant +
+     persistence/git policy, scaling complexity by model backend
    - **Reminder: update `docs/screenshot.png`** when RAG lands — it's
      already stale (shows the old single-file radio-button sidebar, not
      the current multi-file multiselect), but the change is cosmetically
