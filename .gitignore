@@ -23,6 +23,10 @@ data/*
 outputs/*
 !outputs/.gitkeep
 
+# Persisted Chroma vector index (regenerable from bazaar_books/*, may hold real uploaded documents)
+chroma_db/*
+!chroma_db/.gitkeep
+
 # IDE
 .vscode/
 .idea/
