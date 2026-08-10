@@ -203,9 +203,12 @@ reduce adherence").
      agent in `r&d.ipynb` (Step 13). Naive keyword search, no embeddings,
      no Chroma. Loaders: `pymupdf` (pdf), `python-docx` (docx) — not
      `langchain_community`
-   - [ ] Stage 2: real Chroma + embeddings, extracted into
-     `finanalyticsagent/` + wired into `app.py`. Embedding model + Chroma
-     persistence not decided yet
+   - [ ] Stage 2: real Chroma + embeddings — live-tested in `r&d.ipynb`
+     Steps 14-16 (embeddings: `mlx-omni-server` on the Mac serving
+     `mlx-community/Qwen3-Embedding-0.6B-mxfp8`; Chroma persisted to disk;
+     real `ipywidgets.FileUpload` flow) — not yet extracted into
+     `finanalyticsagent/` or wired into `app.py`. Chroma-vs-Qdrant and the
+     final product's persistence policy (disk retention, git) still open
    - [ ] Stage 3 (ongoing): multi-agent (router + separate document agent),
      Docling for `.docx` only, Chroma vs Qdrant, scaling by model backend
    - **Reminder: update `docs/screenshot.png`** when RAG lands — it's
