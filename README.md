@@ -54,6 +54,7 @@ local server).
   - [x] Stage 1: `search_documents` tool on the existing agent, naive keyword search, no embeddings (`r&d.ipynb` Step 13)
   - [ ] Stage 2: real Chroma + embeddings (`mlx-omni-server`, persistent, real file-upload flow — all live-tested in `r&d.ipynb` Steps 14-16), not yet extracted into the package/Streamlit app
   - [ ] Stage 3 (ongoing): multi-agent, Docling for `.docx`, Chroma vs Qdrant
+- [x] RAG quality metrics via RAGAS — `tests/test_rag_metrics.py` + `r&d.ipynb` Step 17 (non-LLM `NonLLMStringSimilarity`; LLM-judge metrics found unreliable on our local model, documented not chased)
 - [x] Conversation memory, in-session — sliding window (sidebar slider, default 3 previous messages), paired with a `request_timeout` on the model so a slow/struggling backend surfaces a UI error instead of hanging forever
 - [ ] Conversation memory across sessions (persisted across app restarts) — not done; the in-session version above is a different, smaller thing. Lowest priority, only worth it if the in-session version proves insufficient
 - [ ] Model backend switcher — local LLM stays the primary target, but add the

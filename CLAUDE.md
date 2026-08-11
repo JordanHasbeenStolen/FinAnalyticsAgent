@@ -211,6 +211,12 @@ reduce adherence").
      final product's persistence policy (disk retention, git) still open
    - [ ] Stage 3 (ongoing): multi-agent (router + separate document agent),
      Docling for `.docx` only, Chroma vs Qdrant, scaling by model backend
+   - [x] RAG quality metrics via RAGAS (`tests/test_rag_metrics.py`,
+     `r&d.ipynb` Step 17) — `NonLLMStringSimilarity` only; LLM-judge
+     metrics (`Faithfulness`/`FactualCorrectness`) hit the same hidden-
+     `<think>`-reasoning-eats-`max_tokens` problem as our own agent and
+     were too unreliable on an 8B local model to depend on, not chased
+     further
    - **Reminder: update `docs/screenshot.png`** when RAG lands — it's
      already stale (shows the old single-file radio-button sidebar, not
      the current multi-file multiselect), but the change is cosmetically
