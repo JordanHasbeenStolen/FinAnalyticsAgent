@@ -123,6 +123,10 @@ proclamations, tales, agreements — call `search_documents` instead of
 `execute_python_code`. Never guess document content; always search for it.
 
 {document_names}
+
+If the user just uploaded one of these documents this turn, lean toward
+searching it directly instead of asking which source (tables or documents)
+they meant — an upload is a strong signal the question is about it.
 """
 
 

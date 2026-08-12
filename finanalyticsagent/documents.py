@@ -37,7 +37,18 @@ embeddings = OpenAIEmbeddings(
     check_embedding_ctx_length=False,  # mlx-omni-server expects a raw string, not token ids
 )
 
+# The demo document set used to seed/restore the canonical persisted
+# knowledge base (see ensure_canonical_knowledge_base) — same 4 files used
+# throughout r&d.ipynb Steps 15-20.
+CANONICAL_DOCUMENTS = {
+    "zau_al_makan_decree.docx": "bazaar_books/zau_al_makan_decree.docx",
+    "hammam_keeper_proclamation.pdf": "bazaar_books/hammam_keeper_proclamation.pdf",
+    "taj_al_muluk_bazaar.docx": "bazaar_books/taj_al_muluk_bazaar.docx",
+    "aziz_reckoning.pdf": "bazaar_books/aziz_reckoning.pdf",
+}
+
 _active_vectorstore: Chroma | None = None
+_active_source_filter: list[str] | None = None
 
 
 def load_pdf(path: str) -> str:
@@ -114,6 +125,67 @@ def build_knowledge_base(document_files: dict[str, str], persist: bool = True) -
         kwargs["collection_name"] = COLLECTION_NAME
         kwargs["persist_directory"] = PERSIST_DIR
     return Chroma.from_texts(**kwargs)
+
+
+def list_persisted_sources() -> list[str]:
+    """List the distinct source file names already in the persisted knowledge base.
+
+    Returns:
+        Sorted list of source names (from chunk metadata), or an empty list
+        if `PERSIST_DIR` doesn't exist or the collection is empty.
+    """
+    if not Path(PERSIST_DIR).exists():
+        return []
+    existing = Chroma(
+        collection_name=COLLECTION_NAME,
+        embedding_function=embeddings,
+        persist_directory=PERSIST_DIR,
+    )
+    if existing._collection.count() == 0:
+        return []
+    sources = {m["source"] for m in existing.get()["metadatas"] if m and "source" in m}
+    return sorted(sources)
+
+
+def ensure_canonical_knowledge_base() -> Chroma:
+    """Reload the persisted knowledge base, seeding it from CANONICAL_DOCUMENTS if empty.
+
+    Self-healing: rather than surfacing an empty knowledge base (e.g. after
+    `reset_knowledge_base()` or a test run that wiped it), this rebuilds it
+    from the known synthetic demo documents so the app always has a
+    reference knowledge base to fall back on.
+
+    Returns:
+        The Chroma vectorstore, ready for `.similarity_search(...)`.
+    """
+    if list_persisted_sources():
+        return build_knowledge_base({}, persist=True)
+
+    document_files = {
+        name: (load_pdf(path) if path.endswith(".pdf") else load_docx(path))
+        for name, path in CANONICAL_DOCUMENTS.items()
+    }
+    return build_knowledge_base(document_files, persist=True)
+
+
+def set_source_filter(sources: list[str] | None) -> None:
+    """Restrict search_documents to only the given source file names.
+
+    Args:
+        sources: source file names to allow, or None to search everything
+            in the active vectorstore.
+    """
+    global _active_source_filter
+    _active_source_filter = sources
+
+
+def get_source_filter() -> list[str] | None:
+    """Get the current source-name restriction for search_documents.
+
+    Returns:
+        The list set by the most recent call to set_source_filter, or None.
+    """
+    return _active_source_filter
 
 
 def add_documents(vectorstore: Chroma, document_files: dict[str, str]) -> None:

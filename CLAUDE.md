@@ -198,30 +198,39 @@ reduce adherence").
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
    — the current wording only forbids prose mentions of the file path/
    "download this file", not markup that embeds it.
-2. RAG module (Chroma) for non-tabular files (PDF/DOC) — phased plan:
+2. **[x] RAG module (Chroma) for non-tabular files (PDF/DOCX) — MVP complete.**
+   A minimal live prototype of everything originally planned exists
+   end-to-end: naive keyword search → real Chroma/embeddings tested in the
+   notebook → extracted into modules and wired into `app.py`.
    - [x] Stage 1 (2026-08-04): `search_documents` tool added to the existing
      agent in `r&d.ipynb` (Step 13). Naive keyword search, no embeddings,
      no Chroma. Loaders: `pymupdf` (pdf), `python-docx` (docx) — not
      `langchain_community`
-   - [x] Stage 2: real Chroma + embeddings, extracted into
-     `finanalyticsagent/documents.py` (config, loaders, build/add/reset,
-     get/set vectorstore), wired through `tools.py` (`search_documents`),
-     `prompts.py` (`build_documents_section`), `graph.py`
-     (`build_agent(tables, document_files, persist_documents=True)`).
-     Embeddings: `mlx-omni-server` on the Mac serving
-     `mlx-community/Qwen3-Embedding-0.6B-mxfp8`; Chroma persisted to disk
-     by default (`chroma_db/`), reloads instead of rebuilding unless
-     `reset_knowledge_base()` is called explicitly — checks the reloaded
-     collection's `.count()`, not just directory existence, since an empty
-     `persist_directory` (e.g. right after a reset) still "exists" and
-     would otherwise silently reload as zero documents (caught live via
-     `r&d.ipynb` Step 18, not assumed). `app.py`'s sidebar has a PDF/DOCX
-     uploader wired in with `persist_documents=False` (session-only,
-     mirrors how uploaded tables are already session-only). Chroma-vs-
-     Qdrant and the final product's persistence policy for user uploads
-     (disk retention, git) still open
-   - [ ] Stage 3 (ongoing): multi-agent (router + separate document agent),
-     Docling for `.docx` only, Chroma vs Qdrant, scaling by model backend
+   - [x] Stage 2: real Chroma + embeddings tested live in the notebook
+     (Steps 14-17) — `mlx-omni-server` on the Mac serving
+     `mlx-community/Qwen3-Embedding-0.6B-mxfp8`; persistence, real
+     file-upload flow
+   - [x] Stage 3: extracted into `finanalyticsagent/documents.py` (config,
+     loaders, build/add/reset/filter, get/set vectorstore), wired through
+     `tools.py` (`search_documents`, now with metadata `source` filtering),
+     `prompts.py` (`build_documents_section` + a "just uploaded → answer
+     from it" prompt hint), `graph.py`
+     (`build_agent(tables, document_files, selected_document_names, persist_documents=True)`).
+     `ensure_canonical_knowledge_base()` self-heals — rebuilds `chroma_db/`
+     from the 4 synthetic demo documents if empty (e.g. after a test run
+     wipes it), rather than surfacing an empty knowledge base. `app.py` has
+     a "Demo documents" multiselect (metadata-filtered search, mirrors
+     "Demo datasets" for tables) plus an own-file uploader — uploading
+     tables or documents each **replaces** the demo/canonical source only
+     in its own type, independently (2026-08-13, tested live in the
+     browser, screenshots reviewed). **Settled, not revisiting:** Chroma
+     for all foreseeable stages, not Qdrant. **Still genuinely open:**
+     final persistence policy for a user's *own* uploads (currently always
+     ephemeral/session-only, never written to the shared `chroma_db/`)
+   - [ ] *(post-RAG, exploratory, not part of the MVP above)* multi-agent
+     (router + separate document agent), Docling for `.docx` only, scaling
+     by model backend, latency/benchmarking measurement (see
+     `MEMORY.md`-tracked latency-todo — not started)
    - [x] RAG quality metrics via RAGAS (`tests/test_rag_metrics.py`,
      `r&d.ipynb` Step 17) — `NonLLMStringSimilarity` only; LLM-judge
      metrics (`Faithfulness`/`FactualCorrectness`) hit the same hidden-

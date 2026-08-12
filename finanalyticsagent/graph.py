@@ -54,6 +54,7 @@ def answer_was_truncated(result: dict) -> bool:
 def build_agent(
     tables: dict[str, pd.DataFrame] | pd.DataFrame,
     document_files: dict[str, str] | None = None,
+    selected_document_names: list[str] | None = None,
     persist_documents: bool = True,
 ):
     """Build a fresh agent bound to the given table(s) and, optionally, documents.
@@ -66,12 +67,19 @@ def build_agent(
             keeps working unmodified.
         document_files: optional mapping of source file name to its full
             extracted text (PDF/DOCX, via documents.load_pdf/load_docx). If
-            given, the agent also gets a `search_documents` tool backed by
-            a Chroma knowledge base built/reloaded from these documents.
-        persist_documents: whether the document knowledge base is written
-            to/read from disk (documents.PERSIST_DIR). False builds a
-            purely in-memory store instead — e.g. for evaluation runs that
-            shouldn't touch the shared knowledge base.
+            given, the agent gets a `search_documents` tool backed by an
+            in-memory knowledge base built fresh from just these documents —
+            this REPLACES the canonical knowledge base for this session
+            (uploading your own file means "ask only about this").
+        selected_document_names: when `document_files` is not given, which
+            of the canonical/persisted documents (documents.CANONICAL_DOCUMENTS)
+            to expose — the agent gets `search_documents` restricted to only
+            these sources via a metadata filter. Ignored if `document_files`
+            is given.
+        persist_documents: whether `document_files` (a fresh upload) is
+            written to/read from disk (documents.PERSIST_DIR), vs a purely
+            in-memory store. Does not affect the `selected_document_names`
+            path, which always reads the real persisted store.
 
     Returns:
         A compiled agent ready to .invoke({"messages": [...]}).
@@ -93,8 +101,15 @@ def build_agent(
     if document_files:
         vectorstore = documents.build_knowledge_base(document_files, persist=persist_documents)
         documents.set_vectorstore(vectorstore)
+        documents.set_source_filter(None)
         tools.append(search_documents)
         system_prompt += build_documents_section(list(document_files))
+    elif selected_document_names:
+        vectorstore = documents.ensure_canonical_knowledge_base()
+        documents.set_vectorstore(vectorstore)
+        documents.set_source_filter(selected_document_names)
+        tools.append(search_documents)
+        system_prompt += build_documents_section(selected_document_names)
 
     return create_agent(
         model=model,

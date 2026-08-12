@@ -12,6 +12,7 @@ import pymupdf
 import streamlit as st
 from docx import Document as DocxDocument
 
+from finanalyticsagent.documents import CANONICAL_DOCUMENTS
 from finanalyticsagent.graph import MODEL_NAME, answer_was_truncated, build_agent
 
 DEMO_FILES = {
@@ -19,6 +20,16 @@ DEMO_FILES = {
     "Demo ledger (KPIs)": "bazaar_books/guild_ledger.csv",
     "Demo ledger (regions)": "bazaar_books/realm_metadata.csv",
 }
+
+DEMO_DOCUMENTS = {
+    "Zau al-Makan's decree": "zau_al_makan_decree.docx",
+    "Hammam keeper's proclamation": "hammam_keeper_proclamation.pdf",
+    "Taj al-Muluk's bazaar tale": "taj_al_muluk_bazaar.docx",
+    "Aziz's reckoning": "aziz_reckoning.pdf",
+}
+assert set(DEMO_DOCUMENTS.values()) == set(CANONICAL_DOCUMENTS), (
+    "DEMO_DOCUMENTS must list exactly the same source names as documents.CANONICAL_DOCUMENTS"
+)
 
 st.set_page_config(page_title="The Djinn Financier", page_icon="🧞")
 
@@ -101,13 +112,26 @@ with st.sidebar:
         except Exception as e:
             st.warning(f"Couldn't read {uploaded_file.name!r}: {e}")
 
-    if not tables and not document_files:
-        st.info("Select a demo dataset or upload a file to begin.")
+    st.markdown("### Documents")
+    if document_files:
+        st.caption("Your own uploaded document(s) replace the demo documents for this session.")
+        selected_documents = []
+    else:
+        selected_documents = st.multiselect(
+            "Demo documents",
+            list(DEMO_DOCUMENTS),
+            default=list(DEMO_DOCUMENTS),
+        )
+    selected_document_names = [DEMO_DOCUMENTS[label] for label in selected_documents]
+
+    if not tables and not document_files and not selected_document_names:
+        st.info("Select a demo dataset/document or upload a file to begin.")
         st.stop()
 
     source_key = (
         tuple(sorted(selected_demos)),
         tuple(sorted(f.name for f in uploaded_files)),
+        tuple(sorted(selected_document_names)),
     )
 
     show_debug = st.checkbox("Show which tool was used", value=True)
@@ -133,7 +157,14 @@ if st.session_state.get("source_key") != source_key:
     # persist_documents=False: uploaded documents are session-only, not
     # written to the shared chroma_db/ knowledge base — matches how
     # uploaded tables are already session-only, not saved anywhere.
-    st.session_state.agent = build_agent(tables, document_files or None, persist_documents=False)
+    # selected_document_names (ignored if document_files is set) restricts
+    # search to the chosen demo documents in the canonical knowledge base.
+    st.session_state.agent = build_agent(
+        tables,
+        document_files or None,
+        selected_document_names or None,
+        persist_documents=False,
+    )
     st.session_state.source_key = source_key
     st.session_state.messages = []
 

@@ -170,7 +170,9 @@ def search_documents(query: str) -> str:
         message if the vector search backend fails.
     """
     try:
-        hits = documents.get_vectorstore().similarity_search(query, k=documents.SEARCH_K)
+        source_filter = documents.get_source_filter()
+        where = {"source": {"$in": source_filter}} if source_filter else None
+        hits = documents.get_vectorstore().similarity_search(query, k=documents.SEARCH_K, filter=where)
     except Exception as e:
         return f"Error: {e}"
 
