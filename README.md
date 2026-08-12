@@ -13,14 +13,14 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents`
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** one or more named pandas DataFrames (`dfs['table_name']`), loaded from CSV/XLSX — the agent can combine several if a question needs it
-- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict. `search_documents` (naive keyword search over PDF/DOCX) exists as an `r&d.ipynb` prototype, not yet in `finanalyticsagent/`/`app.py`
+- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict. `search_documents` (real vector search — Chroma + local embeddings via `mlx-omni-server`) exists as an `r&d.ipynb` prototype (Steps 13-17), not yet in `finanalyticsagent/`/`app.py`
 - **UI:** Streamlit chat (`app.py`) — desert-night/lamplight theme via `config.toml`, tool-usage transparency toggle (on by default), chart downloads
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (`dfs['name']`), returns the result
 - `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded table(s), saves the figure to `outputs/*.png`, returns the file path
-- `search_documents(query: str)` — naive keyword search over loaded PDF/DOCX documents; prototype only (`r&d.ipynb` Step 13), not yet in the shipped package/app
+- `search_documents(query: str)` — vector search over loaded PDF/DOCX documents via Chroma + local embeddings (`mlx-omni-server`, `Qwen3-Embedding-0.6B`); prototype only (`r&d.ipynb` Steps 13-17), not yet in the shipped package/app
 
 ## How to Run
 
@@ -69,13 +69,14 @@ local server).
 ## Stack
  
 - Python 3.13, `uv` for env management
-- `langgraph`, `langchain`, `langchain-openai`, `langchain-text-splitters`, `pandas`, `matplotlib`, `openpyxl`, `ipywidgets`, `streamlit`, `python-docx`, `pymupdf`
+- `langgraph`, `langchain`, `langchain-openai`, `langchain-text-splitters`, `langchain-chroma`, `chromadb`, `pandas`, `matplotlib`, `openpyxl`, `ipywidgets`, `streamlit`, `python-docx`, `pymupdf`, `ragas`, `rapidfuzz`
 - Development in WSL2 / VS Code / Jupyter
 - On-prem inference: `mlx_lm.server` on Apple Silicon
 
 ## Status
  
 🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end,
-backed by a `pytest` test suite, with multi-file support. RAG Stage 1
-(naive document search, notebook-only) is done; next up is real
-embeddings/Chroma and wiring it into the package/app.
+backed by a `pytest` test suite, with multi-file support. RAG (Chroma +
+real local embeddings, persistence, live file-upload flow, quality checks
+via RAGAS) is proven end-to-end in `r&d.ipynb` — next up is extracting it
+into `finanalyticsagent/` and wiring it into the Streamlit app.
