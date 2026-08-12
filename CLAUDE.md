@@ -25,7 +25,7 @@ Context file for Claude Code. Read this file at the start of every session in th
 - **Orchestration:** LangGraph 1.2.x
 - **LangChain:** 1.3.x (v1.0 released April 2026 with breaking changes — do not rely on pre-1.0 patterns)
 - **Data:** pandas, matplotlib, openpyxl, ipywidgets (for the notebook's file-upload widget)
-- **Documents (RAG prototype):** `pymupdf` (pdf), `python-docx` (docx), `langchain-text-splitters` (direct dependency — was only pulled in transitively via the now-removed `langchain-community`)
+- **Documents (RAG):** `pymupdf` (pdf), `python-docx` (docx), `langchain-text-splitters` (direct dependency — was only pulled in transitively via the now-removed `langchain-community`), `langchain-chroma` + `chromadb` (vector store), `ragas` + `rapidfuzz` (RAG quality metrics — `rapidfuzz` is a fast fuzzy-string-matching library ragas uses internally for its non-LLM similarity metric)
 - **UI:** Streamlit (`app.py`)
 
 Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via `uv add <package>`.
@@ -203,12 +203,23 @@ reduce adherence").
      agent in `r&d.ipynb` (Step 13). Naive keyword search, no embeddings,
      no Chroma. Loaders: `pymupdf` (pdf), `python-docx` (docx) — not
      `langchain_community`
-   - [ ] Stage 2: real Chroma + embeddings — live-tested in `r&d.ipynb`
-     Steps 14-16 (embeddings: `mlx-omni-server` on the Mac serving
-     `mlx-community/Qwen3-Embedding-0.6B-mxfp8`; Chroma persisted to disk;
-     real `ipywidgets.FileUpload` flow) — not yet extracted into
-     `finanalyticsagent/` or wired into `app.py`. Chroma-vs-Qdrant and the
-     final product's persistence policy (disk retention, git) still open
+   - [x] Stage 2: real Chroma + embeddings, extracted into
+     `finanalyticsagent/documents.py` (config, loaders, build/add/reset,
+     get/set vectorstore), wired through `tools.py` (`search_documents`),
+     `prompts.py` (`build_documents_section`), `graph.py`
+     (`build_agent(tables, document_files, persist_documents=True)`).
+     Embeddings: `mlx-omni-server` on the Mac serving
+     `mlx-community/Qwen3-Embedding-0.6B-mxfp8`; Chroma persisted to disk
+     by default (`chroma_db/`), reloads instead of rebuilding unless
+     `reset_knowledge_base()` is called explicitly — checks the reloaded
+     collection's `.count()`, not just directory existence, since an empty
+     `persist_directory` (e.g. right after a reset) still "exists" and
+     would otherwise silently reload as zero documents (caught live via
+     `r&d.ipynb` Step 18, not assumed). `app.py`'s sidebar has a PDF/DOCX
+     uploader wired in with `persist_documents=False` (session-only,
+     mirrors how uploaded tables are already session-only). Chroma-vs-
+     Qdrant and the final product's persistence policy for user uploads
+     (disk retention, git) still open
    - [ ] Stage 3 (ongoing): multi-agent (router + separate document agent),
      Docling for `.docx` only, Chroma vs Qdrant, scaling by model backend
    - [x] RAG quality metrics via RAGAS (`tests/test_rag_metrics.py`,
@@ -216,7 +227,19 @@ reduce adherence").
      metrics (`Faithfulness`/`FactualCorrectness`) hit the same hidden-
      `<think>`-reasoning-eats-`max_tokens` problem as our own agent and
      were too unreliable on an 8B local model to depend on, not chased
-     further
+     further. **If revisited: the blocker is the judge model, not the
+     metric** — use a larger or cloud-hosted judge (at minimum
+     DeepSeek-class, not Qwen3-8B) rather than trying to fix this on the
+     same small local model
+   - **Not yet added (needs a better judge model first, verified against
+     installed ragas 0.4.3, not assumed):** `Faithfulness`,
+     `ContextPrecisionWithReference`, `ContextRecall` — the "classic" RAGAS
+     metrics. Checked `inspect.signature` on the actual installed classes:
+     all three require an `llm` argument in this version — there is no
+     free non-LLM variant of context precision/recall in
+     `ragas.metrics.collections` to fall back on, so adding them is
+     gated on the same judge-model upgrade as `Faithfulness` above, not a
+     separate problem
    - **Reminder: update `docs/screenshot.png`** when RAG lands — it's
      already stale (shows the old single-file radio-button sidebar, not
      the current multi-file multiselect), but the change is cosmetically
@@ -277,6 +300,7 @@ reduce adherence").
 - **Prefer the fastest path to a working prototype.** This is a personal MVP, not a production system. Don't propose custom implementations when a prebuilt one works. Don't refactor unless asked.
 - **Never edit `r&d.ipynb` without an explicit go-ahead in the current message.** Editing it while the user might run cells causes real VS Code/Jupyter buffer desync (recurring, not hypothetical — happened multiple times). Wait for an explicit yes each time, not a standing blanket permission from earlier in the conversation.
 - **Before editing `r&d.ipynb`, ask a short pre-flight check first** — e.g. "About to edit the notebook — have you saved it, and did you run anything I might not know about?" One quick question here prevents the VS Code/Jupyter desync above and confirms both sides agree on the current state before anything gets written.
+- **Before starting a large or important piece of work (a new module, a multi-file refactor, extracting a whole feature), ask what reasoning-effort level is currently set.** Same reflexive pre-flight instinct as the notebook check above — the user manages this setting and forgets to raise it before asking for big work; I can't read it myself, so silence isn't confirmation.
 - **`git commit`/`git push` require their own explicit go-ahead, separate from permission to make the underlying code changes.** "Fix X" or "apply the changes" is not "commit and push it" — those are two different requests. Ask before committing even when the changes themselves were requested and already made, especially right after edits the user hasn't personally verified yet.
 - **When asked "why did X happen" or similar, answer the question first — do not start fixing.** Only fix once the user explicitly asks for a fix. Diagnosing and repairing in the same breath skips the user's chance to decide whether/how it should be fixed.
 - **Update README.md/CLAUDE.md roadmap checkboxes right after finishing the step they describe, not several turns later.** Design decisions and completed work (e.g. the Streamlit design direction, module extraction) should get written down promptly — don't let documentation lag behind work that's already done, especially since context can reset and undocumented decisions are expensive to redo.

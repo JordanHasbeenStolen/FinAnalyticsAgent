@@ -111,3 +111,29 @@ def build_system_prompt(tables: dict[str, pd.DataFrame], n_preview_rows: int = 5
             f"### Preview (first {n_preview_rows} rows)\n\n{build_preview_kv(df, n_preview_rows)}"
         )
     return SYSTEM_PROMPT_TEMPLATE.format(tables_section="\n\n".join(sections))
+
+
+DOCUMENTS_SECTION_TEMPLATE = """\
+
+## Documents available
+
+You also have access to non-tabular documents (not part of `dfs`), listed
+below by file name. For questions about their content — decrees,
+proclamations, tales, agreements — call `search_documents` instead of
+`execute_python_code`. Never guess document content; always search for it.
+
+{document_names}
+"""
+
+
+def build_documents_section(document_names: list[str]) -> str:
+    """Build the system prompt section listing available documents.
+
+    Args:
+        document_names: names of the loaded document files.
+
+    Returns:
+        A markdown section to append to the base system prompt.
+    """
+    names = "\n".join(f"- {name}" for name in document_names)
+    return DOCUMENTS_SECTION_TEMPLATE.format(document_names=names)

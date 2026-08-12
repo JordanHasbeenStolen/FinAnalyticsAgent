@@ -13,14 +13,14 @@ An agentic replacement for the OpenAI Assistants-style tabular analytics workflo
 - **Orchestration:** LangGraph (ReAct pattern), built via `create_agent` from `langchain.agents`
 - **LLM:** Qwen3-8B-MLX-4bit (on-prem, OpenAI-compatible endpoint)
 - **Data layer:** one or more named pandas DataFrames (`dfs['table_name']`), loaded from CSV/XLSX — the agent can combine several if a question needs it
-- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict. `search_documents` (real vector search — Chroma + local embeddings via `mlx-omni-server`) exists as an `r&d.ipynb` prototype (Steps 13-17), not yet in `finanalyticsagent/`/`app.py`
+- **Tooling:** `execute_python_code` for pandas queries; `create_chart` for matplotlib charts — both operate on the `dfs` dict. `search_documents` — real vector search over PDF/DOCX via Chroma + local embeddings (`mlx-omni-server`) — lives in `finanalyticsagent/documents.py`/`tools.py`, wired through `graph.build_agent(tables, document_files)` and exposed via `app.py`'s sidebar uploader
 - **UI:** Streamlit chat (`app.py`) — desert-night/lamplight theme via `config.toml`, tool-usage transparency toggle (on by default), chart downloads
 - **Model backend (planned):** switchable — local LLM (`mlx_lm.server`) is the primary target, with a future option to swap in Azure OpenAI / OpenAI endpoints
 ## Tools
  
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (`dfs['name']`), returns the result
 - `create_chart(code: str)` — runs LLM-generated matplotlib code against the loaded table(s), saves the figure to `outputs/*.png`, returns the file path
-- `search_documents(query: str)` — vector search over loaded PDF/DOCX documents via Chroma + local embeddings (`mlx-omni-server`, `Qwen3-Embedding-0.6B`); prototype only (`r&d.ipynb` Steps 13-17), not yet in the shipped package/app
+- `search_documents(query: str)` — vector search over loaded PDF/DOCX documents via Chroma + local embeddings (`mlx-omni-server`, `Qwen3-Embedding-0.6B`); implemented in `finanalyticsagent/`, exposed via `app.py`'s sidebar uploader
 
 ## How to Run
 
@@ -52,9 +52,9 @@ local server).
   - [x] Update `app.py` (multi-select demo files + multi-file upload)
 - [ ] RAG module (Chroma) for non-tabular files (PDF/DOC)
   - [x] Stage 1: `search_documents` tool on the existing agent, naive keyword search, no embeddings (`r&d.ipynb` Step 13)
-  - [ ] Stage 2: real Chroma + embeddings (`mlx-omni-server`, persistent, real file-upload flow — all live-tested in `r&d.ipynb` Steps 14-16), not yet extracted into the package/Streamlit app
+  - [x] Stage 2: real Chroma + embeddings (`mlx-omni-server`), extracted into `finanalyticsagent/documents.py` + wired through `tools.py`/`prompts.py`/`graph.py` (`build_agent(tables, document_files)`); persisted to disk by default, reloads rather than rebuilding unless explicitly reset. `app.py` sidebar has a PDF/DOCX uploader (session-only, not written to the shared `chroma_db/`)
   - [ ] Stage 3 (ongoing): multi-agent, Docling for `.docx`, Chroma vs Qdrant
-- [x] RAG quality metrics via RAGAS — `tests/test_rag_metrics.py` + `r&d.ipynb` Step 17 (non-LLM `NonLLMStringSimilarity`; LLM-judge metrics found unreliable on our local model, documented not chased)
+- [x] RAG quality metrics via RAGAS — `tests/test_rag_metrics.py` + `r&d.ipynb` Step 17 (non-LLM `NonLLMStringSimilarity`; LLM-judge metrics found unreliable on our local model — the blocker is the judge model, not the metric, revisit with a larger/cloud judge, at minimum DeepSeek-class, not Qwen3-8B)
 - [x] Conversation memory, in-session — sliding window (sidebar slider, default 3 previous messages), paired with a `request_timeout` on the model so a slow/struggling backend surfaces a UI error instead of hanging forever
 - [ ] Conversation memory across sessions (persisted across app restarts) — not done; the in-session version above is a different, smaller thing. Lowest priority, only worth it if the in-session version proves insufficient
 - [ ] Model backend switcher — local LLM stays the primary target, but add the
@@ -77,6 +77,6 @@ local server).
  
 🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end,
 backed by a `pytest` test suite, with multi-file support. RAG (Chroma +
-real local embeddings, persistence, live file-upload flow, quality checks
-via RAGAS) is proven end-to-end in `r&d.ipynb` — next up is extracting it
-into `finanalyticsagent/` and wiring it into the Streamlit app.
+real local embeddings, persistence, quality checks via RAGAS) is fully
+extracted into `finanalyticsagent/`, covered by tests, and wired into the
+Streamlit app's document uploader.

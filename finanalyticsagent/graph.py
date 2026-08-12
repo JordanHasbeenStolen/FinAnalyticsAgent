@@ -11,9 +11,9 @@ import pandas as pd
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
-from finanalyticsagent import active_table
-from finanalyticsagent.prompts import build_system_prompt
-from finanalyticsagent.tools import create_chart, execute_python_code
+from finanalyticsagent import active_table, documents
+from finanalyticsagent.prompts import build_documents_section, build_system_prompt
+from finanalyticsagent.tools import create_chart, execute_python_code, search_documents
 
 MODEL_NAME = "Qwen/Qwen3-8B-MLX-4bit"
 
@@ -51,8 +51,12 @@ def answer_was_truncated(result: dict) -> bool:
     return last_ai_message.response_metadata.get("finish_reason") == "length"
 
 
-def build_agent(tables: dict[str, pd.DataFrame] | pd.DataFrame):
-    """Build a fresh agent bound to the given table(s).
+def build_agent(
+    tables: dict[str, pd.DataFrame] | pd.DataFrame,
+    document_files: dict[str, str] | None = None,
+    persist_documents: bool = True,
+):
+    """Build a fresh agent bound to the given table(s) and, optionally, documents.
 
     Args:
         tables: a dict mapping table name to DataFrame — the agent can
@@ -60,6 +64,14 @@ def build_agent(tables: dict[str, pd.DataFrame] | pd.DataFrame):
             single DataFrame is also accepted (deprecated), wrapped
             internally as {"df": tables}; kept only so r&d.ipynb's Step 10
             keeps working unmodified.
+        document_files: optional mapping of source file name to its full
+            extracted text (PDF/DOCX, via documents.load_pdf/load_docx). If
+            given, the agent also gets a `search_documents` tool backed by
+            a Chroma knowledge base built/reloaded from these documents.
+        persist_documents: whether the document knowledge base is written
+            to/read from disk (documents.PERSIST_DIR). False builds a
+            purely in-memory store instead — e.g. for evaluation runs that
+            shouldn't touch the shared knowledge base.
 
     Returns:
         A compiled agent ready to .invoke({"messages": [...]}).
@@ -76,8 +88,16 @@ def build_agent(tables: dict[str, pd.DataFrame] | pd.DataFrame):
 
     active_table.set_tables(tables)
     system_prompt = build_system_prompt(tables)
+    tools = [execute_python_code, create_chart]
+
+    if document_files:
+        vectorstore = documents.build_knowledge_base(document_files, persist=persist_documents)
+        documents.set_vectorstore(vectorstore)
+        tools.append(search_documents)
+        system_prompt += build_documents_section(list(document_files))
+
     return create_agent(
         model=model,
-        tools=[execute_python_code, create_chart],
+        tools=tools,
         system_prompt=system_prompt,
     )

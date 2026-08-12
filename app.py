@@ -8,7 +8,9 @@ See CLAUDE.md's "Streamlit UI Design Direction" for the design rationale.
 from pathlib import Path
 
 import pandas as pd
+import pymupdf
 import streamlit as st
+from docx import Document as DocxDocument
 
 from finanalyticsagent.graph import MODEL_NAME, answer_was_truncated, build_agent
 
@@ -33,6 +35,22 @@ def load_uploaded_file(uploaded_file) -> pd.DataFrame:
     if uploaded_file.name.endswith(".csv"):
         return pd.read_csv(uploaded_file)
     return pd.read_excel(uploaded_file)
+
+
+def load_uploaded_document(uploaded_file) -> str:
+    """Extract text from a Streamlit-uploaded PDF/DOCX file, by extension.
+
+    Args:
+        uploaded_file: the object returned by st.file_uploader.
+
+    Returns:
+        The extracted text.
+    """
+    if uploaded_file.name.endswith(".pdf"):
+        with pymupdf.open(stream=uploaded_file.read(), filetype="pdf") as pdf:
+            return "\n".join(page.get_text() for page in pdf)
+    doc = DocxDocument(uploaded_file)
+    return "\n".join(p.text for p in doc.paragraphs)
 
 
 def unique_table_name(name: str, existing: dict) -> str:
@@ -61,8 +79,9 @@ with st.sidebar:
         default=[next(iter(DEMO_FILES))],
     )
     uploaded_files = st.file_uploader(
-        "Upload your own .csv/.xlsx (you can pick more than one)",
-        type=["csv", "xlsx"],
+        "Upload your own files — .csv/.xlsx for tables, .pdf/.docx for documents "
+        "(you can pick more than one, mixed types are fine)",
+        type=["csv", "xlsx", "pdf", "docx"],
         accept_multiple_files=True,
     )
 
@@ -70,15 +89,26 @@ with st.sidebar:
     for label in selected_demos:
         path = DEMO_FILES[label]
         tables[Path(path).stem] = pd.read_csv(path)
-    for uploaded_file in uploaded_files:
-        name = unique_table_name(Path(uploaded_file.name).stem, tables)
-        tables[name] = load_uploaded_file(uploaded_file)
 
-    if not tables:
+    document_files: dict[str, str] = {}
+    for uploaded_file in uploaded_files:
+        try:
+            if uploaded_file.name.endswith((".csv", ".xlsx")):
+                name = unique_table_name(Path(uploaded_file.name).stem, tables)
+                tables[name] = load_uploaded_file(uploaded_file)
+            else:
+                document_files[uploaded_file.name] = load_uploaded_document(uploaded_file)
+        except Exception as e:
+            st.warning(f"Couldn't read {uploaded_file.name!r}: {e}")
+
+    if not tables and not document_files:
         st.info("Select a demo dataset or upload a file to begin.")
         st.stop()
 
-    source_key = (tuple(sorted(selected_demos)), tuple(f.name for f in uploaded_files))
+    source_key = (
+        tuple(sorted(selected_demos)),
+        tuple(sorted(f.name for f in uploaded_files)),
+    )
 
     show_debug = st.checkbox("Show which tool was used", value=True)
 
@@ -100,7 +130,10 @@ with st.sidebar:
 # not on every rerun, since Streamlit reruns this whole script on every
 # interaction.
 if st.session_state.get("source_key") != source_key:
-    st.session_state.agent = build_agent(tables)
+    # persist_documents=False: uploaded documents are session-only, not
+    # written to the shared chroma_db/ knowledge base — matches how
+    # uploaded tables are already session-only, not saved anywhere.
+    st.session_state.agent = build_agent(tables, document_files or None, persist_documents=False)
     st.session_state.source_key = source_key
     st.session_state.messages = []
 

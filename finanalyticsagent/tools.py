@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from langchain_core.tools import tool
 
-from finanalyticsagent import active_table
+from finanalyticsagent import active_table, documents
 
 MAX_TOOL_OUTPUT_CHARS = 4000
 OUTPUTS_DIR = Path("outputs")
@@ -150,6 +150,37 @@ def create_chart(code: str) -> str:
         fig.savefig(filename, bbox_inches="tight", transparent=True)
         plt.close(fig)
     return str(filename)
+
+
+@tool
+def search_documents(query: str) -> str:
+    """Search the loaded non-tabular documents (PDF/DOCX) for relevant text.
+
+    Use this for questions about document content — decrees, proclamations,
+    tales, agreements — as opposed to numeric/tabular questions, which
+    should use execute_python_code instead. Never guess document content;
+    always search for it.
+
+    Args:
+        query: the search query — what you're looking for in the documents.
+
+    Returns:
+        The most relevant chunks of text, each tagged with its source file,
+        or a message saying nothing relevant was found, or an "Error: ..."
+        message if the vector search backend fails.
+    """
+    try:
+        hits = documents.get_vectorstore().similarity_search(query, k=documents.SEARCH_K)
+    except Exception as e:
+        return f"Error: {e}"
+
+    if not hits:
+        return "No relevant text found in the loaded documents for this query."
+
+    output = "\n---\n".join(f"[{h.metadata['source']}] {h.page_content}" for h in hits)
+    if len(output) > MAX_TOOL_OUTPUT_CHARS:
+        return output[:MAX_TOOL_OUTPUT_CHARS] + "\n...\n[Output truncated — narrow your query.]"
+    return output
 
 
 def load_table(path: str) -> pd.DataFrame:
