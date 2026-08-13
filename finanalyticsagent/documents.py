@@ -12,28 +12,34 @@ it does not wipe on every call. Wiping (`reset_knowledge_base`) is a
 separate, explicitly-called operation, not part of the normal load path.
 """
 
+import os
 import shutil
 from pathlib import Path
 
 import pymupdf
 from chromadb.api.client import SharedSystemClient
 from docx import Document as DocxDocument
+from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+load_dotenv()
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 SEARCH_K = 5
 PERSIST_DIR = "chroma_db"
 COLLECTION_NAME = "bazaar_books_kb"
-EMBEDDINGS_MODEL_NAME = "mlx-community/Qwen3-Embedding-0.6B-mxfp8"
-EMBEDDINGS_BASE_URL = "http://10.195.19.15:8090/v1"
+# Defaults match this project's own local mlx-omni-server setup — override
+# via .env (see .env.example) to point elsewhere.
+EMBEDDINGS_MODEL_NAME = os.getenv("EMBEDDINGS_MODEL", "mlx-community/Qwen3-Embedding-0.6B-mxfp8")
+EMBEDDINGS_BASE_URL = os.getenv("EMBEDDINGS_BASE_URL", "http://10.195.19.15:8090/v1")
 
 embeddings = OpenAIEmbeddings(
     model=EMBEDDINGS_MODEL_NAME,
     base_url=EMBEDDINGS_BASE_URL,
-    api_key="dummy",
+    api_key=os.getenv("EMBEDDINGS_API_KEY", "dummy"),
     check_embedding_ctx_length=False,  # mlx-omni-server expects a raw string, not token ids
 )
 

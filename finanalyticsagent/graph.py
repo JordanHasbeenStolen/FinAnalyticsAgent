@@ -5,9 +5,11 @@ the active tables change at runtime — e.g. on file upload — unlike the
 static graphs in the official LangGraph templates.
 """
 
+import os
 import warnings
 
 import pandas as pd
+from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
@@ -15,12 +17,19 @@ from finanalyticsagent import active_table, documents
 from finanalyticsagent.prompts import build_documents_section, build_system_prompt
 from finanalyticsagent.tools import create_chart, execute_python_code, search_documents
 
-MODEL_NAME = "Qwen/Qwen3-8B-MLX-4bit"
+load_dotenv()
+
+# Defaults match this project's own local mlx_lm.server setup — override via
+# .env (see .env.example) to point at a different local server, OpenAI, or
+# Azure OpenAI (all speak the same Chat Completions wire format ChatOpenAI
+# expects). Anthropic is NOT a drop-in base_url swap — it needs
+# langchain_anthropic.ChatAnthropic instead, not wired in here.
+MODEL_NAME = os.getenv("LLM_MODEL", "Qwen/Qwen3-8B-MLX-4bit")
 
 model = ChatOpenAI(
     model=MODEL_NAME,
-    base_url="http://10.195.19.15:8000/v1",
-    api_key="dummy",
+    base_url=os.getenv("LLM_BASE_URL", "http://10.195.19.15:8000/v1"),
+    api_key=os.getenv("LLM_API_KEY", "dummy"),
     temperature=0,
     max_tokens=8192,
     # 180s: ~2-3x the slowest single-answer latency measured against this
