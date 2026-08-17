@@ -203,7 +203,10 @@ reduce adherence").
 1. Harden `prompts.py` against the `<image src="...png" />` leak found above
    — the current wording only forbids prose mentions of the file path/
    "download this file", not markup that embeds it.
-2. **[x] RAG module (Chroma) for non-tabular files (PDF/DOCX) — MVP complete.**
+2. **Top priority of the open items below:** explore advanced RAG
+   techniques from modern commercial products (reranker, HyDE, better
+   context retrieval) — specifics pending.
+3. **[x] RAG module (Chroma) for non-tabular files (PDF/DOCX) — MVP complete.**
    A minimal live prototype of everything originally planned exists
    end-to-end: naive keyword search → real Chroma/embeddings tested in the
    notebook → extracted into modules and wired into `app.py`.
@@ -236,9 +239,13 @@ reduce adherence").
      (tabular/document/small-talk questions, generous sanity ceilings, not
      strict SLAs). Test-suite level only — not surfaced in `app.py`'s UI
      (see "Next up" below).
-   - [ ] *(post-RAG, exploratory, not part of the MVP above)* multi-agent
-     (router + separate document agent), Docling for `.docx` only, scaling
-     by model backend
+   - [ ] Multi-agent (router + separate document agent) — not planned:
+     single-agent tool-calling already works correctly (Step 20), a router
+     would only add cost with no measured benefit at the current tool
+     count. Revisit only if the tool/domain count grows enough to make one
+     system prompt unwieldy (see item 10 below)
+   - [ ] *(long-term)* Docling for `.docx` parsing (alternative to
+     `python-docx`)
    - [x] RAG quality metrics via RAGAS (`tests/test_rag_metrics.py`,
      `r&d.ipynb` Step 17) — `NonLLMStringSimilarity` only; LLM-judge
      metrics (`Faithfulness`/`FactualCorrectness`) hit the same hidden-
@@ -262,22 +269,22 @@ reduce adherence").
      the current multi-file multiselect), but the change is cosmetically
      minor, so bundling it with the next visible UI change (RAG) rather
      than doing a screenshot-only update now
-3. *(lowest priority, exploratory)* True persistence across app restarts —
+4. *(long-term)* True persistence across app restarts —
    in-session memory is done (see above); this would need writing history
    to disk/a database, only worth it if the in-session-only version proves
    insufficient in practice
-4. Model backend switcher — local LLM stays primary, but add the ability to
-   swap in Azure OpenAI / OpenAI endpoints (or other local models like
-   DeepSeek) without rewriting the agent code. Note: `app.py`'s caption
-   "nothing leaves this network" is only true for the on-prem stack — once
-   remote endpoints are switchable, that text needs to become conditional
-   on which backend is active, not a hardcoded claim
-5. *(lowest priority, exploratory)* Dedicated functions/tools for common
+5. Model backend switcher — not a UI toggle; `app.py` should read whichever
+   backend `.env` already points to and adjust its own text accordingly
+   (e.g. swap "nothing leaves this network" for a cloud-appropriate note)
+   instead of hardcoding the on-prem claim regardless of backend. Likely
+   needs an explicit `LLM_PROVIDER=local|openai|azure` var rather than
+   guessing from the URL. Not needed right now.
+6. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-6. *(lowest priority, not urgent — revisit next time a similarly
+7. *(lowest priority, not urgent — revisit next time a similarly
    heavy/resource-intensive question comes up)* `request_timeout=180` on
    the model only bounds a single HTTP request, not the whole
    `agent.invoke()` call — a ReAct loop makes 2+ sequential model calls
@@ -289,17 +296,19 @@ reduce adherence").
    Would need an overall deadline wrapped around the whole `invoke()` call,
    not just the client's per-request timeout — not done now, just recorded
    so we know to revisit it if/when a heavy task like this resurfaces.
-7. *(lowest priority, exploratory)* Move `finanalyticsagent/` into a
-   `src/finanalyticsagent/` layout — deliberately deferred once already
-   (2026-07-31), the user wanted to see the flat module split working
-   first before adding directory nesting on top
-8. Surface latency/tokens-per-sec in `app.py` itself, not just the test
+8. *(reconsidering)* Move `finanalyticsagent/` into a
+   `src/finanalyticsagent/` layout — `src`-layout is PyPA's own
+   recommended default (and what `uv init` generates), but the actual
+   blast radius here is unclear: every import path in `r&d.ipynb`,
+   `tests/`, and `app.py` would need checking. Needs a proper look at what
+   breaks before deciding whether it's worth doing — not scheduled
+9. Surface latency/tokens-per-sec in `app.py` itself, not just the test
    suite. `mlx_lm.server`'s API has no rate field — its `usage` object only
    returns `prompt_tokens`/`completion_tokens` (checked directly against
    the installed server's source, not assumed) — so this needs the same
    client-side `time.perf_counter()` calculation `tests/test_rag_performance.py`
    already does, just surfaced as a caption/metric in the UI.
-9. *(lowest priority, exploratory)* Scaling multi-file support to many
+10. *(lowest priority, exploratory)* Scaling multi-file support to many
    tables (10-30+) — current design dumps every loaded table's full
    schema+preview into the system prompt on every question, which doesn't
    scale: bigger prompt, slower responses, and untested (likely worse)

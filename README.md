@@ -58,12 +58,18 @@ local server).
 - [x] LLM-as-judge across three models (Gemma3, Qwen3, Qwen3.5) — `Faithfulness`/`ContextPrecision`/`ContextRecall` via `ragas.metrics.collections`, `r&d.ipynb` Steps 22-23. Gemma3 unusable as a judge (wraps JSON in a markdown fence). Qwen3's hidden `<think>` reasoning was silently eating the token budget on judge calls specifically — fixed via `enable_thinking=False`. Qwen3.5 used as a cross-model judge to check for self-preference bias
 - [x] Latency/tokens-per-sec measurement — `tests/test_rag_performance.py` (tabular/document/small-talk questions, generous sanity ceilings, not strict SLAs); not yet surfaced in `app.py`'s own UI
 - [ ] Surface latency/tokens-per-sec in `app.py` itself — `mlx_lm.server`'s API only returns token counts (`usage.prompt_tokens`/`completion_tokens`), not a rate, so this needs the same client-side timing the tests already do
-- [ ] *(post-RAG, exploratory — not part of the MVP above)* multi-agent architecture (router + separate document agent), Docling for `.docx`, Chroma vs Qdrant (settled: Chroma for all foreseeable stages, not revisiting)
+- [ ] **Top priority of the open items below:** explore advanced RAG techniques from modern commercial products (reranker, HyDE, better context retrieval) — specifics pending
+- [ ] Multi-agent architecture (router + separate document agent) — not planned: single-agent tool-calling already works correctly (`r&d.ipynb` Step 20), a router would only add cost with no measured benefit at the current tool count
+- [ ] *(long-term)* Docling for `.docx` parsing (alternative to `python-docx`)
+- [ ] *(settled, not revisiting)* Chroma vs Qdrant — staying on Chroma for all foreseeable stages
 - [x] Conversation memory, in-session — sliding window (sidebar slider, default 3 previous messages), paired with a `request_timeout` on the model so a slow/struggling backend surfaces a UI error instead of hanging forever
-- [ ] Conversation memory across sessions (persisted across app restarts) — not done; the in-session version above is a different, smaller thing. Lowest priority, only worth it if the in-session version proves insufficient
-- [ ] Model backend switcher — local LLM stays the primary target, but add the
-      ability to swap in Azure OpenAI / OpenAI endpoints (or other local
-      models like DeepSeek) without rewriting the agent code
+- [ ] *(long-term)* Conversation memory across sessions (persisted across app restarts) — only worth it if the in-session version proves insufficient
+- [ ] Model backend switcher — not a UI toggle; `app.py` should read whichever
+      backend `.env` already points to and adjust its own text accordingly
+      (e.g. swap "nothing leaves this network" for a cloud-appropriate note)
+      instead of hardcoding the on-prem claim regardless of backend. Likely
+      needs an explicit `LLM_PROVIDER=local|openai|azure` var rather than
+      guessing from the URL. Not needed right now
 - [x] Surface tool-usage transparency to the end user — done as part of the Streamlit UI above
 - [ ] *(lowest priority, exploratory)* Dedicated functions/tools for common
       table operations (e.g. groupby-aggregate, filter, growth-over-time) as
