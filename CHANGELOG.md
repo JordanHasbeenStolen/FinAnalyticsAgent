@@ -152,3 +152,73 @@ deprioritized until we hit a real one (see CLAUDE.md's roadmap).
     this across three attempts. Accepted as a known risk, not pursued
     further, per the project's practice of not solving a hypothetical
     problem ahead of a real one.
+- RAG Stage 1: `search_documents` tool, naive keyword search over PDF/DOCX
+  chunks, no embeddings (`r&d.ipynb` Step 13). Loaders: `pymupdf` (pdf),
+  `python-docx` (docx) — not `langchain_community`.
+
+## Done (2026-08-07)
+- RAG Stage 2 start: real embeddings via `mlx-omni-server`
+  (`mlx-community/Qwen3-Embedding-0.6B-mxfp8`) + Chroma vector search,
+  wired into the agent (`r&d.ipynb` Step 14), live-tested.
+
+## Done (2026-08-10)
+- RAG Stage 2: persistent Chroma collection (`chroma_db/`, gitignored)
+  with a real file-upload flow (Step 15/16). Four synthetic demo
+  documents loaded. Gotcha found and fixed: `Chroma.from_texts` on an
+  existing collection appends rather than replaces — wipe the directory
+  before every rebuild.
+
+## Done (2026-08-11)
+- RAG quality metrics via RAGAS: `tests/test_rag_metrics.py` +
+  `r&d.ipynb` Step 17. Only `NonLLMStringSimilarity` (non-LLM) asserted
+  on — LLM-judge metrics hit the same hidden-`<think>`-eats-`max_tokens`
+  issue as the agent itself on this local model, too unreliable to
+  assert on at the time (root cause found later, see 2026-08-14/17
+  below).
+
+## Done (2026-08-13)
+- RAG MVP complete: extracted into `finanalyticsagent/documents.py`,
+  wired through `tools.py`/`prompts.py`/`graph.py`
+  (`build_agent(tables, document_files, selected_document_names,
+  persist_documents)`). `app.py` gained a "Demo documents" multiselect
+  (metadata-filtered search) and a self-healing canonical knowledge base
+  (`ensure_canonical_knowledge_base()` rebuilds `chroma_db/` from the 4
+  synthetic docs if empty). Uploading a table or a document each replaces
+  only its own source type, independently — verified live in the
+  browser.
+- Config moved to `.env`/`.env.example` (`python-dotenv`) — LLM and
+  embeddings endpoint/model/key no longer hardcoded in
+  `graph.py`/`documents.py`.
+- `tests/test_rag_performance.py` added — measures latency and
+  tokens/sec per question (tabular/document/small-talk), via
+  `time.perf_counter()` around `agent.invoke()` and
+  `response_metadata["token_usage"]["completion_tokens"]`. Generous
+  sanity ceilings, not strict SLAs — real local-model performance varies
+  run to run. Test-suite level only, not yet surfaced in `app.py`'s UI.
+- Step 21 (`r&d.ipynb`): regression test confirming the RAG pipeline
+  works unchanged when swapping the backend model to Gemma 3
+  (`gemma-3-12b-it-4bit`).
+
+## Done (2026-08-14 – 2026-08-17)
+- Steps 22-23 (`r&d.ipynb`): LLM-as-judge comparison across three models
+  (Gemma3, Qwen3, Qwen3.5) using `ragas.metrics.collections`
+  (`Faithfulness`, `ContextPrecision`, `ContextRecall`) via `llm_factory`.
+  - Gemma3 fails consistently as a judge — wraps JSON in a markdown
+    fence, `ragas` requires clean JSON.
+  - Qwen3 as its own judge failed intermittently on timeout/`max_tokens`.
+    Root cause: hidden `<think>` reasoning consuming the token budget
+    unpredictably during structured-output/judge calls specifically (not
+    the main agent, which was already handling this correctly). Fix:
+    `chat_template_kwargs: {"enable_thinking": false}` passed via
+    `extra_body` — verified directly (a "what is 2+2" call dropped from
+    an unpredictable token count to 8 completion tokens), then confirmed
+    via a full clean run.
+  - Qwen3 (self-judged) vs Qwen3.5 (cross-model judge) compared to check
+    self-preference bias — a documented phenomenon where a judge scores
+    same-family output more leniently. Qwen3.5 scored one Qwen3 answer's
+    faithfulness lower (0.0) than Qwen3 scored itself (1.0) on the same,
+    factually correct answer — consistent with the effect, though not
+    conclusive on its own (Qwen3.5 also disagreed with itself elsewhere).
+- Notebook markdown cleanup: cell headers rewritten from second-person/
+  imperative phrasing to factual descriptions, self-justifying/narrative
+  text trimmed (Steps 8-23).

@@ -26,6 +26,7 @@ Context file for Claude Code. Read this file at the start of every session in th
 - **LangChain:** 1.3.x (v1.0 released April 2026 with breaking changes — do not rely on pre-1.0 patterns)
 - **Data:** pandas, matplotlib, openpyxl, ipywidgets (for the notebook's file-upload widget)
 - **Documents (RAG):** `pymupdf` (pdf), `python-docx` (docx), `langchain-text-splitters` (direct dependency — was only pulled in transitively via the now-removed `langchain-community`), `langchain-chroma` + `chromadb` (vector store), `ragas` + `rapidfuzz` (RAG quality metrics — `rapidfuzz` is a fast fuzzy-string-matching library ragas uses internally for its non-LLM similarity metric)
+- **Config:** `python-dotenv` — LLM and embeddings endpoint/model/key (`EMBEDDINGS_MODEL_NAME`/`EMBEDDINGS_BASE_URL`/`EMBEDDINGS_API_KEY`) read from `.env` (see `.env.example`), not hardcoded
 - **UI:** Streamlit (`app.py`)
 
 Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via `uv add <package>`.
@@ -41,7 +42,7 @@ Dependencies are in `pyproject.toml`, locked in `uv.lock`. Add new packages via 
 - `execute_python_code(code: str)` — runs LLM-generated pandas code against the loaded table(s) (a `dfs` dict, accessed as `dfs['table_name']`), returns the result. Truncates output past `MAX_TOOL_OUTPUT_CHARS` with a clear message instead of flooding the LLM context.
 - `create_chart(code: str)` — matplotlib chart generation against `dfs`, saves PNG to `outputs/` (git-ignored, same rationale as `data/`), returns file path
 - `load_table(path)` — loads a `.csv`/`.xlsx` by extension; this is the built version of what the roadmap used to call `read_new_table(path)`. Combined with `ipywidgets.FileUpload` in the notebook for a real click-to-upload flow.
-- `search_documents(query: str)` — naive keyword search over PDF/DOCX chunks (RAG Stage 1). Prototype only, in `r&d.ipynb` (Step 13) — not yet in `finanalyticsagent/`/`app.py`.
+- `search_documents(query: str)` — vector search over PDF/DOCX chunks via Chroma + local embeddings (`mlx-omni-server`), in `finanalyticsagent/documents.py`/`tools.py`, wired into `app.py`. Optionally restricted to selected sources via a metadata `source` filter.
 
 ### State
 `TypedDict` with `messages: Annotated[list[AnyMessage], operator.add]`.
@@ -138,10 +139,14 @@ reusable layer that Streamlit and tests import from):
 - `tools.py` — `execute_python_code`, `create_chart`
 - `prompts.py` — `build_schema_table`, `build_preview_kv`,
   `SYSTEM_PROMPT_TEMPLATE`, `build_system_prompt`
-- `graph.py` — the `model` and `build_agent(tables)`, which takes a
-  `dict[str, pd.DataFrame]` (a single DataFrame is also accepted,
-  deprecated, wrapped internally as `{"df": tables}`) since the active
-  tables change at runtime (file upload)
+- `graph.py` — the `model` and
+  `build_agent(tables, document_files=None, selected_document_names=None, persist_documents=True)`.
+  `tables` is a `dict[str, pd.DataFrame]` (a single DataFrame is also
+  accepted, deprecated, wrapped internally as `{"df": tables}`).
+  `document_files` (a real upload this session) is ephemeral and replaces
+  the document source fully; `selected_document_names` instead calls
+  `documents.ensure_canonical_knowledge_base()` and filters search to
+  those sources.
 
 ### Notebooks
 - Names: `NN_description.ipynb` (leading number for order).
@@ -227,10 +232,13 @@ reduce adherence").
      for all foreseeable stages, not Qdrant. **Still genuinely open:**
      final persistence policy for a user's *own* uploads (currently always
      ephemeral/session-only, never written to the shared `chroma_db/`)
+   - [x] Latency/tokens-per-sec measurement — `tests/test_rag_performance.py`
+     (tabular/document/small-talk questions, generous sanity ceilings, not
+     strict SLAs). Test-suite level only — not surfaced in `app.py`'s UI
+     (see "Next up" below).
    - [ ] *(post-RAG, exploratory, not part of the MVP above)* multi-agent
      (router + separate document agent), Docling for `.docx` only, scaling
-     by model backend, latency/benchmarking measurement (see
-     `MEMORY.md`-tracked latency-todo — not started)
+     by model backend
    - [x] RAG quality metrics via RAGAS (`tests/test_rag_metrics.py`,
      `r&d.ipynb` Step 17) — `NonLLMStringSimilarity` only; LLM-judge
      metrics (`Faithfulness`/`FactualCorrectness`) hit the same hidden-
@@ -285,7 +293,13 @@ reduce adherence").
    `src/finanalyticsagent/` layout — deliberately deferred once already
    (2026-07-31), the user wanted to see the flat module split working
    first before adding directory nesting on top
-8. *(lowest priority, exploratory)* Scaling multi-file support to many
+8. Surface latency/tokens-per-sec in `app.py` itself, not just the test
+   suite. `mlx_lm.server`'s API has no rate field — its `usage` object only
+   returns `prompt_tokens`/`completion_tokens` (checked directly against
+   the installed server's source, not assumed) — so this needs the same
+   client-side `time.perf_counter()` calculation `tests/test_rag_performance.py`
+   already does, just surfaced as a caption/metric in the UI.
+9. *(lowest priority, exploratory)* Scaling multi-file support to many
    tables (10-30+) — current design dumps every loaded table's full
    schema+preview into the system prompt on every question, which doesn't
    scale: bigger prompt, slower responses, and untested (likely worse)

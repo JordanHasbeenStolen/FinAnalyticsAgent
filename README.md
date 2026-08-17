@@ -54,8 +54,11 @@ local server).
   - [x] Naive keyword-search prototype, no embeddings (`r&d.ipynb` Step 13)
   - [x] First real RAG tests in the notebook — real Chroma + embeddings (`mlx-omni-server`), persistence, live file-upload flow (`r&d.ipynb` Steps 14-17)
   - [x] Extracted into `finanalyticsagent/documents.py` + wired through `tools.py`/`prompts.py`/`graph.py` (`build_agent(tables, document_files, selected_document_names)`) and into `app.py`: a self-seeding canonical demo-document knowledge base (auto-rebuilds if `chroma_db/` is empty) with a per-document multiselect (metadata-filtered search), plus an own-file uploader that replaces the document source for that session (tables and documents each replace independently — uploading one doesn't affect the other)
-- [x] RAG quality metrics via RAGAS — `tests/test_rag_metrics.py` + `r&d.ipynb` Step 17 (non-LLM `NonLLMStringSimilarity`; LLM-judge metrics found unreliable on our local model — the blocker is the judge model, not the metric, revisit with a larger/cloud judge, at minimum DeepSeek-class, not Qwen3-8B)
-- [ ] *(post-RAG, exploratory — not part of the MVP above)* multi-agent architecture (router + separate document agent), Docling for `.docx`, Chroma vs Qdrant (settled: Chroma for all foreseeable stages, not revisiting), latency/benchmarking measurement
+- [x] RAG quality metrics via RAGAS — `tests/test_rag_metrics.py` + `r&d.ipynb` Step 17 (non-LLM `NonLLMStringSimilarity`; LLM-judge metrics found unreliable on our local model — root cause found and fixed later, see the `enable_thinking=False` entry in `CHANGELOG.md`, 2026-08-14/17)
+- [x] LLM-as-judge across three models (Gemma3, Qwen3, Qwen3.5) — `Faithfulness`/`ContextPrecision`/`ContextRecall` via `ragas.metrics.collections`, `r&d.ipynb` Steps 22-23. Gemma3 unusable as a judge (wraps JSON in a markdown fence). Qwen3's hidden `<think>` reasoning was silently eating the token budget on judge calls specifically — fixed via `enable_thinking=False`. Qwen3.5 used as a cross-model judge to check for self-preference bias
+- [x] Latency/tokens-per-sec measurement — `tests/test_rag_performance.py` (tabular/document/small-talk questions, generous sanity ceilings, not strict SLAs); not yet surfaced in `app.py`'s own UI
+- [ ] Surface latency/tokens-per-sec in `app.py` itself — `mlx_lm.server`'s API only returns token counts (`usage.prompt_tokens`/`completion_tokens`), not a rate, so this needs the same client-side timing the tests already do
+- [ ] *(post-RAG, exploratory — not part of the MVP above)* multi-agent architecture (router + separate document agent), Docling for `.docx`, Chroma vs Qdrant (settled: Chroma for all foreseeable stages, not revisiting)
 - [x] Conversation memory, in-session — sliding window (sidebar slider, default 3 previous messages), paired with a `request_timeout` on the model so a slow/struggling backend surfaces a UI error instead of hanging forever
 - [ ] Conversation memory across sessions (persisted across app restarts) — not done; the in-session version above is a different, smaller thing. Lowest priority, only worth it if the in-session version proves insufficient
 - [ ] Model backend switcher — local LLM stays the primary target, but add the
@@ -70,7 +73,7 @@ local server).
 ## Stack
  
 - Python 3.13, `uv` for env management
-- `langgraph`, `langchain`, `langchain-openai`, `langchain-text-splitters`, `langchain-chroma`, `chromadb`, `pandas`, `matplotlib`, `openpyxl`, `ipywidgets`, `streamlit`, `python-docx`, `pymupdf`, `ragas`, `rapidfuzz`
+- `langgraph`, `langchain`, `langchain-openai`, `langchain-text-splitters`, `langchain-chroma`, `chromadb`, `pandas`, `matplotlib`, `openpyxl`, `ipywidgets`, `streamlit`, `python-docx`, `pymupdf`, `ragas`, `rapidfuzz`, `python-dotenv`
 - Development in WSL2 / VS Code / Jupyter
 - On-prem inference: `mlx_lm.server` on Apple Silicon
 
