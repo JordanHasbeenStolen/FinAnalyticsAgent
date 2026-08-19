@@ -87,8 +87,8 @@ local server).
 ## Status
  
 🚧 Active development. MVP (agent + tools + Streamlit UI) works end-to-end,
-backed by a `pytest` test suite, with multi-file support **and RAG** (Chroma
-+ real local embeddings, persistence, quality checks via RAGAS) — a live,
+backed by a `pytest` test suite, with multi-file support **and RAG** (Chroma,
+real local embeddings, persistence, quality checks via RAGAS) — a live,
 tested, end-to-end minimal prototype of the whole original plan now exists.
 Next up is exploratory/post-MVP work (see roadmap) — multi-agent, Docling,
 latency measurement — none of it blocking.
