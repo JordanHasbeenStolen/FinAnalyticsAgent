@@ -273,18 +273,21 @@ reduce adherence").
    in-session memory is done (see above); this would need writing history
    to disk/a database, only worth it if the in-session-only version proves
    insufficient in practice
-5. Model backend switcher — not a UI toggle; `app.py` should read whichever
+5. *(long-term, learning goal)* FastAPI — no current need (Streamlit calls
+   the agent in-process, no HTTP layer needed); would matter if a separate
+   frontend needed to call this backend over HTTP
+6. Model backend switcher — not a UI toggle; `app.py` should read whichever
    backend `.env` already points to and adjust its own text accordingly
    (e.g. swap "nothing leaves this network" for a cloud-appropriate note)
    instead of hardcoding the on-prem claim regardless of backend. Likely
    needs an explicit `LLM_PROVIDER=local|openai|azure` var rather than
    guessing from the URL. Not needed right now.
-6. *(lowest priority, exploratory)* Dedicated functions/tools for common
+7. *(lowest priority, exploratory)* Dedicated functions/tools for common
    table operations (groupby-aggregate, filter, growth-over-time) as an
    alternative to the generic `execute_python_code` tool — only revisit if
    we hit a real question the generic tool can't handle; so far it has
    handled everything thrown at it
-7. *(lowest priority, not urgent — revisit next time a similarly
+8. *(lowest priority, not urgent — revisit next time a similarly
    heavy/resource-intensive question comes up)* `request_timeout=180` on
    the model only bounds a single HTTP request, not the whole
    `agent.invoke()` call — a ReAct loop makes 2+ sequential model calls
@@ -296,19 +299,19 @@ reduce adherence").
    Would need an overall deadline wrapped around the whole `invoke()` call,
    not just the client's per-request timeout — not done now, just recorded
    so we know to revisit it if/when a heavy task like this resurfaces.
-8. *(reconsidering)* Move `finanalyticsagent/` into a
+9. *(reconsidering)* Move `finanalyticsagent/` into a
    `src/finanalyticsagent/` layout — `src`-layout is PyPA's own
    recommended default (and what `uv init` generates), but the actual
    blast radius here is unclear: every import path in `r&d.ipynb`,
    `tests/`, and `app.py` would need checking. Needs a proper look at what
    breaks before deciding whether it's worth doing — not scheduled
-9. Surface latency/tokens-per-sec in `app.py` itself, not just the test
+10. Surface latency/tokens-per-sec in `app.py` itself, not just the test
    suite. `mlx_lm.server`'s API has no rate field — its `usage` object only
    returns `prompt_tokens`/`completion_tokens` (checked directly against
    the installed server's source, not assumed) — so this needs the same
    client-side `time.perf_counter()` calculation `tests/test_rag_performance.py`
    already does, just surfaced as a caption/metric in the UI.
-10. *(lowest priority, exploratory)* Scaling multi-file support to many
+11. *(lowest priority, exploratory)* Scaling multi-file support to many
    tables (10-30+) — current design dumps every loaded table's full
    schema+preview into the system prompt on every question, which doesn't
    scale: bigger prompt, slower responses, and untested (likely worse)

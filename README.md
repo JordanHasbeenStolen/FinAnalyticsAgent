@@ -64,6 +64,7 @@ local server).
 - [ ] *(settled, not revisiting)* Chroma vs Qdrant — staying on Chroma for all foreseeable stages
 - [x] Conversation memory, in-session — sliding window (sidebar slider, default 3 previous messages), paired with a `request_timeout` on the model so a slow/struggling backend surfaces a UI error instead of hanging forever
 - [ ] *(long-term)* Conversation memory across sessions (persisted across app restarts) — only worth it if the in-session version proves insufficient
+- [ ] *(long-term, learning goal)* FastAPI — no current need (Streamlit calls the agent in-process, no HTTP layer needed); would matter if a separate frontend needed to call this backend over HTTP
 - [ ] Model backend switcher — not a UI toggle; `app.py` should read whichever
       backend `.env` already points to and adjust its own text accordingly
       (e.g. swap "nothing leaves this network" for a cloud-appropriate note)
